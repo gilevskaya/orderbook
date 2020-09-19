@@ -8615,6 +8615,11 @@ react-error-overlay@^6.0.7:
   resolved "https://registry.yarnpkg.com/react-error-overlay/-/react-error-overlay-6.0.7.tgz#1dcfb459ab671d53f660a991513cb2f0a0553108"
   integrity sha512-TAv1KJFh3RhqxNvhzxj6LeT5NWklP6rDr2a0jaTfsZ5wSZWHOGeqQyejUp3xxLfPt2UpyJEcVQB/zyPcmonNFA==
 
+react-grid-dashboard@^0.0.12:
+  version "0.0.12"
+  resolved "https://registry.yarnpkg.com/react-grid-dashboard/-/react-grid-dashboard-0.0.12.tgz#91afec9fd1f08a35748fea2f81d991b5b3aaabbf"
+  integrity sha512-fo1np2wc+sqYneCFAQ2x5Ezk/zkwig/1qn3zqbVzx/zIU3ELN0u5FjGRyqJzCzlPtZAPwXc/B+sfog7qfSRsUQ==
+
 react-is@^16.12.0, react-is@^16.8.1, react-is@^16.8.4:
   version "16.13.1"
   resolved "https://registry.yarnpkg.com/react-is/-/react-is-16.13.1.tgz#789729a4dc36de2999dc156dd6c1d9c18cea56a4"
@@ -8679,6 +8684,11 @@ react-scripts@3.4.3:
     workbox-webpack-plugin "4.3.1"
   optionalDependencies:
     fsevents "2.1.2"
+
+react-use-websocket@^2.1.1:
+  version "2.1.1"
+  resolved "https://registry.yarnpkg.com/react-use-websocket/-/react-use-websocket-2.1.1.tgz#4c5289c60fbb21963436e0e289b067f91038ae8c"
+  integrity sha512-os9EgsiLXvNZUStJJtfHTAIzCJ4+WuhB4DKuZyAw8V2aIp1a5+5sm68LqgD1Q2aQ2MNUZQ+oCZJm94Xz6/fEMA==
 
 react@^16.13.1:
   version "16.13.1"
@@ -8767,6 +8777,11 @@ realpath-native@^1.1.0:
   integrity sha512-wlgPA6cCIIg9gKz0fgAPjnzh4yR/LnXovwuo9hvyGvx3h8nX4+/iLZplfUWasXpqD8BdnGnP5njOFjkUwPzvjA==
   dependencies:
     util.promisify "^1.0.0"
+
+recoil@^0.0.13:
+  version "0.0.13"
+  resolved "https://registry.yarnpkg.com/recoil/-/recoil-0.0.13.tgz#23e6d63135c07d8defbd91aaa35dca94ec5c15a6"
+  integrity sha512-2OToaQ8GR//KsdKdaEhMi04QKStLGRpk3qjC58iBpZpUtsByZ4dUy2UJtRcYuhnVlltGZ8HNwcEQRdFOS864SQ==
 
 recursive-readdir@2.2.2:
   version "2.2.2"
