@@ -8,11 +8,12 @@ type TOrderBookEntry = {
   price: number;
   size: number;
 };
-
+type TOrderBookSide = Map<number, TOrderBookEntry>;
 export type TOrderBook = {
-  asks: Map<number, TOrderBookEntry>; // id/timestamp -> data
-  bids: Map<number, TOrderBookEntry>;
+  asks: TOrderBookSide; // id/timestamp -> data
+  bids: TOrderBookSide;
 };
+
 export type TConnectStatus =
   | WebSocket["CONNECTING"]
   | WebSocket["OPEN"]
@@ -37,46 +38,37 @@ export const OrderBook = ({ exchange }: { exchange: "bitmex" | "deribit" }) => {
   const orderBook = Recoil.useRecoilValue(exchangeOrderBook[exchange]);
 
   if (!orderBook) return null;
-
   return (
     <div>
-      <div>
-        {Array.from(orderBook.asks).map(([id, { size, price }]) => {
-          return (
-            <div
-              key={id}
-              style={{
-                display: "flex",
-                textAlign: "right",
-                borderBottom: "1px dashed black",
-              }}
-            >
-              <div style={{ flex: 1, color: "red" }}>{price.toFixed(1)}</div>
-              <div style={{ flex: 1 }}>{size.toLocaleString()}</div>
-            </div>
-          );
-        })}
-      </div>
-
+      <OrderBookSide side="asks" data={orderBook.asks} />
       <div>curr price...</div>
+      <OrderBookSide side="bids" data={orderBook.bids} />
+    </div>
+  );
+};
 
-      <div>
-        {Array.from(orderBook.bids).map(([id, { size, price }]) => {
-          return (
-            <div
-              key={id}
-              style={{
-                display: "flex",
-                textAlign: "right",
-                borderBottom: "1px dashed black",
-              }}
-            >
-              <div style={{ flex: 1, color: "green" }}>{price.toFixed(1)}</div>
-              <div style={{ flex: 1 }}>{size.toLocaleString()}</div>
+const OrderBookSide = ({
+  side,
+  data,
+}: {
+  side: "asks" | "bids";
+  data: TOrderBookSide;
+}) => {
+  return (
+    <div className="font-mono text-sm border-gray-700 border-t border-dashed">
+      {Array.from(data).map(([id, { size, price }]) => {
+        return (
+          <div
+            key={id}
+            className="font-mono text-xs flex border-gray-700 border-b border-dashed text-right"
+          >
+            <div style={{ flex: 1, color: side === "asks" ? "green" : "red" }}>
+              {price.toFixed(1)}
             </div>
-          );
-        })}
-      </div>
+            <div className="flex-1">{size.toLocaleString()}</div>
+          </div>
+        );
+      })}
     </div>
   );
 };
