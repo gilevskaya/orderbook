@@ -1,60 +1,70 @@
 import React from "react";
-import useWebSocket, { ReadyState } from "react-use-websocket";
+import Recoil from "recoil";
+
+import { TOrderBook, TConnectStatus } from "./OrderBook";
 
 const WS_URL_DERIBIT = "wss://test.deribit.com/ws/api/v2";
 
-const connectionStatus = {
-  [ReadyState.CONNECTING]: "Connecting",
-  [ReadyState.OPEN]: "Open",
-  [ReadyState.CLOSING]: "Closing",
-  [ReadyState.CLOSED]: "Closed",
-  [ReadyState.UNINSTANTIATED]: "Uninstantiated",
+type TDeribitOrderBookMessage = {
+  asks: Array<[number, number]>; // price, size
+  bids: Array<[number, number]>;
+  timestamp: number;
 };
 
-export const DeribitConnect = ({ children }: { children: React.ReactNode }) => {
-  const [orderBook, setOrderBook] = React.useState({ asks: [], bids: [] });
+export const deribitOrderBook = Recoil.atom<TOrderBook | null>({
+  key: "deribitOrderBook",
+  default: null,
+});
 
-  //   React.useEffect(() => {
-  //     var msg = {
-  //       jsonrpc: "2.0",
-  //       method: "public/subscribe",
-  //       id: 42,
-  //       params: {
-  //         channels: ["book.BTC-PERPETUAL.100.10.100ms"], // raw
-  //       },
-  //     };
-  //     var ws = new WebSocket(WS_URL_DERIBIT);
-  //     ws.onmessage = function (e) {
-  //       // do something with the response...
-  //       const data = JSON.parse(e.data);
-  //       console.log("received from server : ", data);
-  //     };
-  //     ws.onopen = function () {
-  //       ws.send(JSON.stringify(msg));
-  //     };
-  //   }, []);
+export const deribitConnectStatus = Recoil.atom<TConnectStatus | -1>({
+  key: "deribitConnectStatus",
+  default: -1,
+});
 
-  return (
-    <div>
-      {/* <div>
-        The WS is currently: <b>{connectionStatus[readyState]}</b>
-      </div> */}
-      {/* 
-      {lastMessage && (
-        <div>Last message: {JSON.stringify(lastMessage.data)}</div>
-      )} */}
+export const DeribitConnect = () => {
+  const setReadyState = Recoil.useSetRecoilState(deribitConnectStatus);
+  const setOrderBook = Recoil.useSetRecoilState(deribitOrderBook);
 
-      {children}
+  React.useEffect(() => {
+    var msg = {
+      jsonrpc: "2.0",
+      id: 3600,
+      method: "public/subscribe",
+      params: {
+        channels: ["book.BTC-PERPETUAL.none.20.100ms"], // "book.BTC-PERPETUAL.100.1.100ms"],
+      },
+    };
+    var ws = new WebSocket(WS_URL_DERIBIT);
 
-      {/* <div>
-          {messageHistory.current.map((message: any, idx: number) => {
-            return (
-              <div key={idx}>
-                <b>{idx}</b>: {JSON.stringify(message.data)}
-              </div>
-            );
-          })}
-        </div> */}
-    </div>
-  );
+    ws.onmessage = (e) => {
+      const message = JSON.parse(e.data);
+      if (!message.params) return;
+      if (message.params.channel.startsWith("book.BTC-PERPETUAL")) {
+        const data: TDeribitOrderBookMessage = message.params.data;
+        console.log({ data });
+        const ob = {
+          asks: new Map(),
+          bids: new Map(),
+        };
+        data.asks.reverse().forEach(([price, size]) => {
+          const id = data.timestamp + price;
+          ob.asks.set(id, { price, size });
+        });
+        data.bids.forEach(([price, size]) => {
+          const id = data.timestamp + price;
+          ob.bids.set(id, { price, size });
+        });
+        setOrderBook(ob);
+      } else console.log("deribit ------", message);
+    };
+    ws.onopen = () => {
+      setReadyState(WebSocket.OPEN);
+      ws.send(JSON.stringify(msg));
+    };
+    ws.onclose = () => {
+      setReadyState(WebSocket.CLOSED);
+    };
+  }, [setOrderBook, setReadyState]);
+
+  return null;
 };

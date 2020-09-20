@@ -1,19 +1,11 @@
 import React from "react";
 import Recoil from "recoil";
-import useWebSocket, { ReadyState } from "react-use-websocket";
+import useWebSocket from "react-use-websocket";
 
-import { TOrderBook } from "./OrderBook";
+import { TOrderBook, TConnectStatus } from "./OrderBook";
 
 const WS_URL_BITMEX =
   "wss://www.bitmex.com/realtime?subscribe=orderBookL2_25:XBTUSD";
-
-const connectionStatus = {
-  [ReadyState.CONNECTING]: "Connecting",
-  [ReadyState.OPEN]: "Open",
-  [ReadyState.CLOSING]: "Closing",
-  [ReadyState.CLOSED]: "Closed",
-  [ReadyState.UNINSTANTIATED]: "Uninstantiated",
-};
 
 type TBitmexOrderBookMessage =
   | {
@@ -53,10 +45,16 @@ type TBitmexOrderBookMessage =
 
 export const bitmexOrderBook = Recoil.atom<TOrderBook | null>({
   key: "bitmexOrderBook",
-  default: null, // default value (aka initial value)
+  default: null,
 });
 
-export const BitmexConnect = ({ children }: { children: React.ReactNode }) => {
+export const bitmexConnectStatus = Recoil.atom<TConnectStatus | -1>({
+  key: "bitmexConnectStatus",
+  default: -1,
+});
+
+export const BitmexConnect = () => {
+  const setReadyState = Recoil.useSetRecoilState(bitmexConnectStatus);
   const [orderBook, setOrderBook] = Recoil.useRecoilState(bitmexOrderBook);
 
   const { lastMessage, readyState } = useWebSocket(WS_URL_BITMEX, {
@@ -66,6 +64,10 @@ export const BitmexConnect = ({ children }: { children: React.ReactNode }) => {
     share: false,
     retryOnError: true,
   });
+
+  React.useEffect(() => {
+    setReadyState(readyState);
+  }, [readyState, setReadyState]);
 
   React.useEffect(() => {
     if (!lastMessage || !lastMessage.data) return;
@@ -150,15 +152,7 @@ export const BitmexConnect = ({ children }: { children: React.ReactNode }) => {
         console.log("bmex ------", message);
       }
     }
-  }, [lastMessage]);
+  }, [lastMessage, orderBook, setOrderBook]);
 
-  return (
-    <div>
-      <div>
-        The WS is currently: <b>{connectionStatus[readyState]}</b>
-      </div>
-
-      {children}
-    </div>
-  );
+  return null;
 };
