@@ -15,7 +15,7 @@ function App() {
     <RecoilRoot>
       <BitmexConnect />
       <DeribitConnect />
-      <div className="h-screen bg-gray-900 text-gray-200 p-1">
+      <div className="h-screen bg-gray-900 text-gray-200 p-1 flex flex-col">
         <OrderBookPage />
       </div>
     </RecoilRoot>
@@ -27,7 +27,7 @@ const Widget = ({
 }: {
   children: React.ReactElement | Array<React.ReactElement>;
 }) => (
-  <div className="h-full w-full border border-gray-700 rounded-sm">
+  <div className="h-full w-full border border-gray-700 rounded-sm flex flex-col">
     {children}
   </div>
 );
@@ -48,7 +48,7 @@ const OrderBookPage = () => {
     >
       <Dashboard.Item id="bitmex">
         <Widget>
-          <div className="p-2 pt-1">
+          <div className="p-2 pt-1 flex-1 flex flex-col">
             <div className="pb-1">
               Bitmex:{" "}
               <span className="font-semibold">
@@ -61,7 +61,7 @@ const OrderBookPage = () => {
       </Dashboard.Item>
       <Dashboard.Item id="deribit">
         <Widget>
-          <div className="p-2 pt-1">
+          <div className="p-2 pt-1 flex-1 flex flex-col">
             <div className="pb-1">
               Deribit:{" "}
               <span className="font-semibold">

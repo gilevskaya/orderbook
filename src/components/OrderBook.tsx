@@ -41,7 +41,7 @@ export const OrderBook = ({ exchange }: { exchange: "bitmex" | "deribit" }) => {
   return (
     <div>
       <OrderBookSide side="asks" data={orderBook.asks} />
-      <div>curr price...</div>
+      <div className="h-8">curr price...</div>
       <OrderBookSide side="bids" data={orderBook.bids} />
     </div>
   );
@@ -60,9 +60,12 @@ const OrderBookSide = ({
         return (
           <div
             key={id}
-            className="font-mono text-xs flex border-gray-700 border-b border-dashed text-right"
+            className="font-mono flex text-xs flex border-gray-700 border-b border-dashed text-right"
           >
-            <div style={{ flex: 1, color: side === "asks" ? "green" : "red" }}>
+            <div
+              className="flex-1"
+              style={{ color: side === "asks" ? "red" : "green" }}
+            >
               {price.toFixed(1)}
             </div>
             <div className="flex-1">{size.toLocaleString()}</div>

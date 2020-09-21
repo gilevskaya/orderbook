@@ -41,7 +41,6 @@ export const DeribitConnect = () => {
       if (!message.params) return;
       if (message.params.channel.startsWith("book.BTC-PERPETUAL")) {
         const data: TDeribitOrderBookMessage = message.params.data;
-        console.log({ data });
         const ob = {
           asks: new Map(),
           bids: new Map(),
