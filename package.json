@@ -15,7 +15,6 @@
     "react-grid-dashboard": "^0.0.12",
     "react-scripts": "3.4.3",
     "react-use-websocket": "^2.1.1",
-    "recoil": "^0.0.13",
     "tailwindcss": "^1.8.10",
     "typescript": "~3.7.2"
   },

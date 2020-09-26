@@ -1,29 +1,34 @@
 import React from "react";
-import Recoil from "recoil";
 
-import { TOrderBook, TConnectStatus } from "./OrderBook";
+import { TOrderBook, TTrade, TConnectStatus } from "./OrderBook";
 
-const WS_URL_DERIBIT = "wss://test.deribit.com/ws/api/v2";
+const WS_URL_DERIBIT = "wss://www.deribit.com/ws/api/v2";
 
 type TDeribitOrderBookMessage = {
   asks: Array<[number, number]>; // price, size
   bids: Array<[number, number]>;
   timestamp: number;
 };
+type TExchangeContext = {
+  connectStatus: TConnectStatus | -1;
+  orderbook: TOrderBook | null;
+  lastPrice: number | null;
+};
 
-export const deribitOrderBook = Recoil.atom<TOrderBook | null>({
-  key: "deribitOrderBook",
-  default: null,
+export const DeribitContext = React.createContext<TExchangeContext>({
+  connectStatus: -1,
+  orderbook: null,
+  lastPrice: null,
 });
 
-export const deribitConnectStatus = Recoil.atom<TConnectStatus | -1>({
-  key: "deribitConnectStatus",
-  default: -1,
-});
-
-export const DeribitConnect = () => {
-  const setReadyState = Recoil.useSetRecoilState(deribitConnectStatus);
-  const setOrderBook = Recoil.useSetRecoilState(deribitOrderBook);
+export const DeribitConnect = ({
+  children,
+}: {
+  children: React.ReactChild | React.ReactChildren;
+}) => {
+  const [readyState, setReadyState] = React.useState(-1);
+  const [orderbook, setOrderbook] = React.useState<TOrderBook | null>(null);
+  const [lastPrice, setLastPrice] = React.useState<number | null>(null);
 
   React.useEffect(() => {
     var msg = {
@@ -31,29 +36,52 @@ export const DeribitConnect = () => {
       id: 3600,
       method: "public/subscribe",
       params: {
-        channels: ["book.BTC-PERPETUAL.none.20.100ms"], // "book.BTC-PERPETUAL.100.1.100ms"],
+        channels: [
+          "book.BTC-PERPETUAL.none.20.100ms",
+          "trades.BTC-PERPETUAL.raw",
+          "ticker.BTC-PERPETUAL.raw",
+        ],
       },
     };
     var ws = new WebSocket(WS_URL_DERIBIT);
 
     ws.onmessage = (e) => {
       const message = JSON.parse(e.data);
-      if (!message.params) return;
+      if (!message.params || !message.params.data) return;
+      // ...
       if (message.params.channel.startsWith("book.BTC-PERPETUAL")) {
         const data: TDeribitOrderBookMessage = message.params.data;
-        const ob = {
-          asks: new Map(),
-          bids: new Map(),
-        };
-        data.asks.reverse().forEach(([price, size]) => {
-          const id = data.timestamp + price;
-          ob.asks.set(id, { price, size });
+        const entries = new Map();
+        data.asks.forEach(([price, size]) => {
+          entries.set(price, {
+            price,
+            size,
+            timestamp: data.timestamp,
+            side: "asks",
+          });
         });
         data.bids.forEach(([price, size]) => {
-          const id = data.timestamp + price;
-          ob.bids.set(id, { price, size });
+          entries.set(price, {
+            price,
+            size,
+            timestamp: data.timestamp,
+            side: "bids",
+          });
         });
-        setOrderBook(ob);
+        setOrderbook({
+          entries,
+          bestBid: data.bids[0][0],
+          bestAsk: data.asks[0][0],
+        });
+        // ...
+      } else if (message.params.channel.startsWith("trades.BTC-PERPETUAL")) {
+        const data: TTrade[] = message.params.data;
+        // console.log("deribit trade", data);
+        // const { price, direction } = data[data.length - 1];
+        // setLastTrade({ price, direction });
+      } else if (message.params.channel.startsWith("ticker.BTC-PERPETUAL")) {
+        const data = message.params.data;
+        setLastPrice(data.last_price);
       } else console.log("deribit ------", message);
     };
     ws.onopen = () => {
@@ -63,7 +91,17 @@ export const DeribitConnect = () => {
     ws.onclose = () => {
       setReadyState(WebSocket.CLOSED);
     };
-  }, [setOrderBook, setReadyState]);
+  }, [setOrderbook, setReadyState]);
 
-  return null;
+  return (
+    <DeribitContext.Provider
+      value={{
+        connectStatus: readyState,
+        orderbook,
+        lastPrice,
+      }}
+    >
+      {children}
+    </DeribitContext.Provider>
+  );
 };

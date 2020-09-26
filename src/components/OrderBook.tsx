@@ -1,17 +1,25 @@
 import React from "react";
-import Recoil from "recoil";
 
-import { bitmexOrderBook } from "./BitmexConnect";
-import { deribitOrderBook } from "./DeribitConnect";
+// import { bitmexOrderBook } from "./BitmexConnect";
+import { DeribitContext } from "./DeribitConnect";
 
-type TOrderBookEntry = {
+type TOrderBookEntryBase = {
   price: number;
   size: number;
+  side: "bids" | "asks";
 };
-type TOrderBookSide = Map<number, TOrderBookEntry>;
+type TOrderBookEntry = TOrderBookEntryBase & {
+  timestamp: number;
+};
 export type TOrderBook = {
-  asks: TOrderBookSide; // id/timestamp -> data
-  bids: TOrderBookSide;
+  entries: Map<number, TOrderBookEntry>;
+  bestBid: number;
+  bestAsk: number;
+};
+
+export type TTrade = {
+  price: number;
+  direction: "buy" | "sell";
 };
 
 export type TConnectStatus =
@@ -30,48 +38,86 @@ export const connectStatusName = (status: TConnectStatus | -1): string => {
   }[status];
 };
 
-export const OrderBook = ({ exchange }: { exchange: "bitmex" | "deribit" }) => {
-  const exchangeOrderBook = {
-    bitmex: bitmexOrderBook,
-    deribit: deribitOrderBook,
+export const OrderBook = ({
+  exchange,
+  depth,
+}: {
+  exchange: "deribit";
+  depth: number;
+}) => {
+  const exchangeContext = {
+    deribit: DeribitContext,
   };
-  const orderBook = Recoil.useRecoilValue(exchangeOrderBook[exchange]);
+  const { orderbook, lastPrice } = React.useContext(exchangeContext[exchange]);
+  const [bids, setBids] = React.useState<TOrderBookEntryBase[]>([]);
+  const [asks, setAsks] = React.useState<TOrderBookEntryBase[]>([]);
 
-  if (!orderBook) return null;
+  React.useEffect(() => {
+    if (orderbook == null) return;
+    const { entries, bestAsk, bestBid } = orderbook;
+    const newbids: TOrderBookEntryBase[] = [];
+    const newasks: TOrderBookEntryBase[] = [];
+
+    for (let currDepth = 0; currDepth < depth; currDepth++) {
+      let currBidPrice = bestBid - currDepth * 0.5;
+      let currAskPrice = bestAsk + currDepth * 0.5;
+      const entryBid = entries.get(currBidPrice);
+      const entryAsk = entries.get(currAskPrice);
+      if (entryBid == null || entryAsk == null) return;
+      newbids.push({ price: currBidPrice, size: entryBid.size, side: "bids" });
+      newasks.unshift({
+        price: currAskPrice,
+        size: entryAsk.size,
+        side: "asks",
+      });
+    }
+    setBids(newbids);
+    setAsks(newasks);
+  }, [orderbook, depth]);
+
+  if (!orderbook || !lastPrice) return null;
   return (
     <div>
-      <OrderBookSide side="asks" data={orderBook.asks} />
-      <div className="h-8">curr price...</div>
-      <OrderBookSide side="bids" data={orderBook.bids} />
+      {asks.map(({ price, size }, i) => (
+        <OrderBookEntry
+          key={`${price}-${size}`}
+          isTop={i === 0}
+          side="asks"
+          price={price}
+          size={size}
+        />
+      ))}
+      <div className="pl-3">{lastPrice}</div>
+      {bids.map(({ price, size }, i) => (
+        <OrderBookEntry
+          key={`${price}-${size}`}
+          isTop={i === 0}
+          side="bids"
+          price={price}
+          size={size}
+        />
+      ))}
     </div>
   );
 };
 
-const OrderBookSide = ({
+const OrderBookEntry = ({
+  price,
+  size,
   side,
-  data,
-}: {
-  side: "asks" | "bids";
-  data: TOrderBookSide;
-}) => {
-  return (
-    <div className="font-mono text-sm border-gray-700 border-t border-dashed">
-      {Array.from(data).map(([id, { size, price }]) => {
-        return (
-          <div
-            key={id}
-            className="font-mono flex text-xs flex border-gray-700 border-b border-dashed text-right"
-          >
-            <div
-              className="flex-1"
-              style={{ color: side === "asks" ? "red" : "green" }}
-            >
-              {price.toFixed(1)}
-            </div>
-            <div className="flex-1">{size.toLocaleString()}</div>
-          </div>
-        );
-      })}
+  isTop,
+}: TOrderBookEntryBase & { isTop?: boolean }) => (
+  <div
+    className={`font-mono flex text-xs flex border-gray-700 border-b ${
+      isTop ? "border-t" : ""
+    } border-dashed text-right`}
+  >
+    <div
+      className="flex-1"
+      style={{ color: side === "asks" ? "red" : "green" }}
+    >
+      {price.toFixed(1)}
     </div>
-  );
-};
+    <div className="flex-1">{size.toLocaleString()}</div>
+  </div>
+);
