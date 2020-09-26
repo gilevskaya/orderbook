@@ -63,11 +63,14 @@ export const OrderBook = ({
       let currAskPrice = bestAsk + currDepth * 0.5;
       const entryBid = entries.get(currBidPrice);
       const entryAsk = entries.get(currAskPrice);
-      if (entryBid == null || entryAsk == null) return;
-      newbids.push({ price: currBidPrice, size: entryBid.size, side: "bids" });
+      newbids.push({
+        price: currBidPrice,
+        size: entryBid != null ? entryBid.size : 0,
+        side: "bids",
+      });
       newasks.unshift({
         price: currAskPrice,
-        size: entryAsk.size,
+        size: entryAsk != null ? entryAsk.size : 0,
         side: "asks",
       });
     }
