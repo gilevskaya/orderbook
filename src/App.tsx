@@ -33,23 +33,23 @@ const OrderBookPage = () => {
     console.log({ deribitConn });
   }, [deribitConn]);
 
-  const depth = 10;
+  const depth = 15;
 
   return (
     <Dashboard
-      columns={4}
+      columns={3}
       rows={1}
       layout={{
-        trades: { x: 1, y: 1, w: 1, h: 1 },
+        deribit: { x: 1, y: 1, w: 1, h: 1 },
         bitmex: { x: 2, y: 1, w: 1, h: 1 },
-        deribit: { x: 3, y: 1, w: 1, h: 1 },
+        trades: { x: 3, y: 1, w: 1, h: 1 },
       }}
       gap={"5pt"}
     >
       <Dashboard.Item id="trades">
         <Widget>
           <div className="p-2 pt-1 flex-1 flex flex-col">
-            <div className="pb-1">Trades</div>
+            <div className="pb-1">Trades...</div>
           </div>
         </Widget>
       </Dashboard.Item>

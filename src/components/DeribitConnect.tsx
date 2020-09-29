@@ -1,12 +1,19 @@
 import React from "react";
 
-import { TOrderBook, TTrade, TConnectStatus } from "./OrderBook";
+import {
+  TOrderBook,
+  TOrderBookEntry,
+  TSide,
+  // TTrade, TODO: For trades feed...
+  TConnectStatus,
+} from "./OrderBook";
 
 const WS_URL_DERIBIT = "wss://www.deribit.com/ws/api/v2";
 
+type TDeribitOrderBookEdit = ["new" | "change", number, number];
 type TDeribitOrderBookMessage = {
-  asks: Array<[number, number]>; // price, size
-  bids: Array<[number, number]>;
+  asks: Array<TDeribitOrderBookEdit>; // type, price, size
+  bids: Array<TDeribitOrderBookEdit>;
   timestamp: number;
 };
 type TExchangeContext = {
@@ -30,6 +37,10 @@ export const DeribitConnect = ({
   const [orderbook, setOrderbook] = React.useState<TOrderBook | null>(null);
   const [lastPrice, setLastPrice] = React.useState<number | null>(null);
 
+  const obEntries = React.useRef<Map<number, TOrderBookEntry>>(new Map());
+  const obBestBid = React.useRef<number | null>(null);
+  const obBestAsk = React.useRef<number | null>(null);
+
   React.useEffect(() => {
     var msg = {
       jsonrpc: "2.0",
@@ -37,7 +48,7 @@ export const DeribitConnect = ({
       method: "public/subscribe",
       params: {
         channels: [
-          "book.BTC-PERPETUAL.none.20.100ms",
+          "book.BTC-PERPETUAL.raw",
           "trades.BTC-PERPETUAL.raw",
           "ticker.BTC-PERPETUAL.raw",
         ],
@@ -48,41 +59,74 @@ export const DeribitConnect = ({
     ws.onmessage = (e) => {
       const message = JSON.parse(e.data);
       if (!message.params || !message.params.data) return;
-      // ...
+
       if (message.params.channel.startsWith("book.BTC-PERPETUAL")) {
         const data: TDeribitOrderBookMessage = message.params.data;
-        const entries = new Map();
-        data.asks.forEach(([price, size]) => {
-          entries.set(price, {
-            price,
-            size,
-            timestamp: data.timestamp,
-            side: "asks",
-          });
-        });
-        data.bids.forEach(([price, size]) => {
-          entries.set(price, {
-            price,
-            size,
-            timestamp: data.timestamp,
-            side: "bids",
-          });
-        });
+
+        const deribitEdits: Array<{
+          side: TSide;
+          edit: TDeribitOrderBookEdit;
+        }> = [
+          ...data.asks.map((edit) => ({ side: TSide.ASKS, edit })),
+          ...data.bids.map((edit) => ({ side: TSide.BIDS, edit })),
+        ];
+
+        for (const editEntry of deribitEdits) {
+          const { side, edit } = editEntry;
+          const [type, price, size] = edit;
+
+          if (type === "new") {
+            if (
+              side === TSide.BIDS &&
+              (obBestBid.current == null || price > obBestBid.current)
+            ) {
+              obBestBid.current = price;
+            } else if (
+              side === TSide.ASKS &&
+              (obBestAsk.current == null || price < obBestAsk.current)
+            ) {
+              obBestAsk.current = price;
+            }
+            obEntries.current.set(price, {
+              price,
+              size,
+              timestamp: data.timestamp,
+              side,
+            });
+            // end of "new"
+          } else if (type === "change") {
+            const prevEntry = obEntries.current.get(price);
+            if (prevEntry == null) {
+              console.warn(`Deribit: can't change entry: ${price}!`);
+              return;
+            }
+            const { timestamp, side } = prevEntry;
+            obEntries.current.set(price, { price, size, timestamp, side });
+            // end of "change"
+          } else if (type === "delete") {
+            if (side === "asks" && price === obBestAsk.current) {
+              obBestAsk.current = price + 0.5;
+            } else if (side === "bids" && price === obBestBid.current) {
+              obBestBid.current = price - 0.5;
+            }
+            obEntries.current.delete(price);
+          }
+        }
+
+        if (obBestBid.current == null || obBestAsk.current == null) return;
         setOrderbook({
-          entries,
-          bestBid: data.bids[0][0],
-          bestAsk: data.asks[0][0],
+          entries: obEntries.current,
+          bestBid: obBestBid.current,
+          bestAsk: obBestAsk.current,
         });
-        // ...
-      } else if (message.params.channel.startsWith("trades.BTC-PERPETUAL")) {
-        const data: TTrade[] = message.params.data;
-        // console.log("deribit trade", data);
-        // const { price, direction } = data[data.length - 1];
-        // setLastTrade({ price, direction });
       } else if (message.params.channel.startsWith("ticker.BTC-PERPETUAL")) {
         const data = message.params.data;
         setLastPrice(data.last_price);
-      } else console.log("deribit ------", message);
+
+        // TODO: Trades feed...
+      } else if (message.params.channel.startsWith("trades.BTC-PERPETUAL")) {
+        // const data: TTrade[] = message.params.data;
+      } else console.log("deribit unknown msg:", message);
     };
     ws.onopen = () => {
       setReadyState(WebSocket.OPEN);

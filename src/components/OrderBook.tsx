@@ -3,12 +3,18 @@ import React from "react";
 // import { bitmexOrderBook } from "./BitmexConnect";
 import { DeribitContext } from "./DeribitConnect";
 
+const ORDERBOOK_STEP = 0.5;
+
+export enum TSide {
+  BIDS = "bids",
+  ASKS = "asks",
+}
 type TOrderBookEntryBase = {
   price: number;
   size: number;
-  side: "bids" | "asks";
+  side: TSide;
 };
-type TOrderBookEntry = TOrderBookEntryBase & {
+export type TOrderBookEntry = TOrderBookEntryBase & {
   timestamp: number;
 };
 export type TOrderBook = {
@@ -59,19 +65,19 @@ export const OrderBook = ({
     const newasks: TOrderBookEntryBase[] = [];
 
     for (let currDepth = 0; currDepth < depth; currDepth++) {
-      let currBidPrice = bestBid - currDepth * 0.5;
-      let currAskPrice = bestAsk + currDepth * 0.5;
+      let currBidPrice = bestBid - currDepth * ORDERBOOK_STEP;
+      let currAskPrice = bestAsk + currDepth * ORDERBOOK_STEP;
       const entryBid = entries.get(currBidPrice);
       const entryAsk = entries.get(currAskPrice);
       newbids.push({
         price: currBidPrice,
         size: entryBid != null ? entryBid.size : 0,
-        side: "bids",
+        side: TSide.BIDS,
       });
       newasks.unshift({
         price: currAskPrice,
         size: entryAsk != null ? entryAsk.size : 0,
-        side: "asks",
+        side: TSide.ASKS,
       });
     }
     setBids(newbids);
@@ -85,7 +91,7 @@ export const OrderBook = ({
         <OrderBookEntry
           key={`${price}-${size}`}
           isTop={i === 0}
-          side="asks"
+          side={TSide.ASKS}
           price={price}
           size={size}
         />
@@ -95,7 +101,7 @@ export const OrderBook = ({
         <OrderBookEntry
           key={`${price}-${size}`}
           isTop={i === 0}
-          side="bids"
+          side={TSide.BIDS}
           price={price}
           size={size}
         />
@@ -117,7 +123,7 @@ const OrderBookEntry = ({
   >
     <div
       className="flex-1"
-      style={{ color: side === "asks" ? "red" : "green" }}
+      style={{ color: side === TSide.ASKS ? "red" : "green" }}
     >
       {price.toFixed(1)}
     </div>
