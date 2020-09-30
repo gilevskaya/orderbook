@@ -1,17 +1,20 @@
 import React from "react";
+import Dashboard from "react-grid-dashboard";
 
-import { BitmexConnect } from "./components/BitmexConnect";
+import { BitmexConnect, BitmexContext } from "./components/BitmexConnect";
 import { DeribitConnect, DeribitContext } from "./components/DeribitConnect";
 
-import { OrderBook, connectStatusName } from "./components/OrderBook";
-import Dashboard from "react-grid-dashboard";
+import { OrderBook } from "./components/OrderBook";
+import { connectStatusName } from "./shared/useWebSocket";
 
 function App() {
   return (
     <DeribitConnect>
-      <div className="h-screen bg-gray-900 text-gray-200 p-1 flex flex-col">
-        <OrderBookPage />
-      </div>
+      <BitmexConnect>
+        <div className="h-screen bg-gray-900 text-gray-200 p-1 flex flex-col">
+          <OrderBookPage />
+        </div>
+      </BitmexConnect>
     </DeribitConnect>
   );
 }
@@ -28,11 +31,7 @@ const Widget = ({
 
 const OrderBookPage = () => {
   const { connectStatus: deribitConn } = React.useContext(DeribitContext);
-
-  React.useEffect(() => {
-    console.log({ deribitConn });
-  }, [deribitConn]);
-
+  const { connectStatus: bitmexConn } = React.useContext(BitmexContext);
   const depth = 15;
 
   return (
@@ -46,28 +45,6 @@ const OrderBookPage = () => {
       }}
       gap={"5pt"}
     >
-      <Dashboard.Item id="trades">
-        <Widget>
-          <div className="p-2 pt-1 flex-1 flex flex-col">
-            <div className="pb-1">Trades...</div>
-          </div>
-        </Widget>
-      </Dashboard.Item>
-
-      <Dashboard.Item id="bitmex">
-        <Widget>
-          <div className="p-2 pt-1 flex-1 flex flex-col">
-            {/* <div className="pb-1">
-              Bitmex:{" "}
-              <span className="font-semibold">
-                {connectStatusName(bitmexConn)}
-              </span>
-            </div> */}
-            {/* <OrderBook exchange="bitmex" depth={depth} /> */}
-          </div>
-        </Widget>
-      </Dashboard.Item>
-
       <Dashboard.Item id="deribit">
         <Widget>
           <div className="p-2 pt-1 flex-1 flex flex-col">
@@ -78,6 +55,28 @@ const OrderBookPage = () => {
               </span>
             </div>
             <OrderBook exchange="deribit" depth={depth} />
+          </div>
+        </Widget>
+      </Dashboard.Item>
+
+      <Dashboard.Item id="bitmex">
+        <Widget>
+          <div className="p-2 pt-1 flex-1 flex flex-col">
+            <div className="pb-1">
+              BitMEX:{" "}
+              <span className="font-semibold">
+                {connectStatusName(bitmexConn)}
+              </span>
+            </div>
+            <OrderBook exchange="bitmex" depth={depth} />
+          </div>
+        </Widget>
+      </Dashboard.Item>
+
+      <Dashboard.Item id="trades">
+        <Widget>
+          <div className="p-2 pt-1 flex-1 flex flex-col">
+            <div className="pb-1">Trades...</div>
           </div>
         </Widget>
       </Dashboard.Item>

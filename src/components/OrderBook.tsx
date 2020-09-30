@@ -1,38 +1,16 @@
 import React from "react";
 
-// import { bitmexOrderBook } from "./BitmexConnect";
 import { DeribitContext } from "./DeribitConnect";
+import { BitmexContext } from "./BitmexConnect";
 
 const ORDERBOOK_STEP = 0.5;
 
-// SHARED
-export type TConnectStatus =
-  | WebSocket["CONNECTING"]
-  | WebSocket["OPEN"]
-  | WebSocket["CLOSING"]
-  | WebSocket["CLOSED"];
-
-export const connectStatusName = (status: TConnectStatus | -1): string => {
-  if (status === -1) return "Uninitiated";
-  return {
-    [WebSocket.CONNECTING]: "Connecting",
-    [WebSocket.OPEN]: "Open",
-    [WebSocket.CLOSING]: "Closing",
-    [WebSocket.CLOSED]: "Closed",
-  }[status];
-};
-export enum TSide {
+export enum TOrderBookSide {
   BIDS = "bids",
   ASKS = "asks",
 }
-export type TTrade = {
-  price: number;
-  direction: "buy" | "sell";
-};
-//
-
 type TOrderBookEntryBase = {
-  side: TSide;
+  side: TOrderBookSide;
   price: number;
   size: number;
   total: number;
@@ -50,11 +28,12 @@ export const OrderBook = ({
   exchange,
   depth,
 }: {
-  exchange: "deribit";
+  exchange: "deribit" | "bitmex";
   depth: number;
 }) => {
   const exchangeContext = {
     deribit: DeribitContext,
+    bitmex: BitmexContext,
   };
   const { orderbook, lastPrice } = React.useContext(exchangeContext[exchange]);
   const [bids, setBids] = React.useState<TOrderBookEntryBase[]>([]);
@@ -76,13 +55,13 @@ export const OrderBook = ({
       if (entryBid != null) newbidstotal += entryBid?.size;
       if (entryAsk != null) newaskstotal += entryAsk?.size;
       newbids.push({
-        side: TSide.BIDS,
+        side: TOrderBookSide.BIDS,
         price: currBidPrice,
         size: entryBid != null ? entryBid.size : 0,
         total: newbidstotal,
       });
       newasks.unshift({
-        side: TSide.ASKS,
+        side: TOrderBookSide.ASKS,
         price: currAskPrice,
         size: entryAsk != null ? entryAsk.size : 0,
         total: newaskstotal,
@@ -99,18 +78,21 @@ export const OrderBook = ({
         <OrderBookEntry
           key={`${price}-${size}`}
           isTop={i === 0}
-          side={TSide.ASKS}
+          side={TOrderBookSide.ASKS}
           price={price}
           size={size}
           total={total}
         />
       ))}
-      <div className="pl-3">{lastPrice}</div>
+      <div className="flex py-1">
+        <div className="flex-1 text-right">{lastPrice.toFixed(1)}</div>
+        <div className="" style={{ flex: "2 2 0%" }}></div>
+      </div>
       {bids.map(({ price, size, total }, i) => (
         <OrderBookEntry
           key={`${price}-${size}`}
           isTop={i === 0}
-          side={TSide.BIDS}
+          side={TOrderBookSide.BIDS}
           price={price}
           size={size}
           total={total}
@@ -134,7 +116,7 @@ const OrderBookEntry = ({
   >
     <div
       className="flex-1"
-      style={{ color: side === TSide.ASKS ? "red" : "green" }}
+      style={{ color: side === TOrderBookSide.ASKS ? "red" : "green" }}
     >
       {price.toFixed(1)}
     </div>

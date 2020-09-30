@@ -1,12 +1,7 @@
 import React from "react";
 
-import {
-  TOrderBook,
-  TOrderBookEntry,
-  TSide,
-  // TTrade, TODO: For trades feed...
-  TConnectStatus,
-} from "./OrderBook";
+import { TOrderBook, TOrderBookEntry, TOrderBookSide } from "./OrderBook";
+import { TExchangeContext } from "../shared/types";
 
 const WS_URL_DERIBIT = "wss://www.deribit.com/ws/api/v2";
 
@@ -16,12 +11,10 @@ type TDeribitOrderBookMessage = {
   bids: Array<TDeribitOrderBookEdit>;
   timestamp: number;
 };
-type TExchangeContext = {
-  connectStatus: TConnectStatus | -1;
-  orderbook: TOrderBook | null;
-  lastPrice: number | null;
+type TDeribitTickerMessage = {
+  last_price: number;
 };
-
+type TDeribitMessage = TDeribitOrderBookMessage | TDeribitTickerMessage;
 export const DeribitContext = React.createContext<TExchangeContext>({
   connectStatus: -1,
   orderbook: null,
@@ -59,16 +52,17 @@ export const DeribitConnect = ({
     ws.onmessage = (e) => {
       const message = JSON.parse(e.data);
       if (!message.params || !message.params.data) return;
+      const { channel } = message.params;
 
-      if (message.params.channel.startsWith("book.BTC-PERPETUAL")) {
+      if (channel.startsWith("book.BTC-PERPETUAL")) {
         const data: TDeribitOrderBookMessage = message.params.data;
 
         const deribitEdits: Array<{
-          side: TSide;
+          side: TOrderBookSide;
           edit: TDeribitOrderBookEdit;
         }> = [
-          ...data.asks.map((edit) => ({ side: TSide.ASKS, edit })),
-          ...data.bids.map((edit) => ({ side: TSide.BIDS, edit })),
+          ...data.asks.map((edit) => ({ side: TOrderBookSide.ASKS, edit })),
+          ...data.bids.map((edit) => ({ side: TOrderBookSide.BIDS, edit })),
         ];
 
         for (const editEntry of deribitEdits) {
@@ -77,12 +71,12 @@ export const DeribitConnect = ({
 
           if (type === "new") {
             if (
-              side === TSide.BIDS &&
+              side === TOrderBookSide.BIDS &&
               (obBestBid.current == null || price > obBestBid.current)
             ) {
               obBestBid.current = price;
             } else if (
-              side === TSide.ASKS &&
+              side === TOrderBookSide.ASKS &&
               (obBestAsk.current == null || price < obBestAsk.current)
             ) {
               obBestAsk.current = price;
@@ -126,12 +120,12 @@ export const DeribitConnect = ({
           bestBid: obBestBid.current,
           bestAsk: obBestAsk.current,
         });
-      } else if (message.params.channel.startsWith("ticker.BTC-PERPETUAL")) {
-        const data = message.params.data;
+      } else if (channel.startsWith("ticker.BTC-PERPETUAL")) {
+        const data: TDeribitTickerMessage = message.params.data;
         setLastPrice(data.last_price);
 
         // TODO: Trades feed...
-      } else if (message.params.channel.startsWith("trades.BTC-PERPETUAL")) {
+      } else if (channel.startsWith("trades.BTC-PERPETUAL")) {
         // const data: TTrade[] = message.params.data;
       } else console.log("deribit unknown msg:", message);
     };
