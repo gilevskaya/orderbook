@@ -5,29 +5,7 @@ import { DeribitContext } from "./DeribitConnect";
 
 const ORDERBOOK_STEP = 0.5;
 
-export enum TSide {
-  BIDS = "bids",
-  ASKS = "asks",
-}
-type TOrderBookEntryBase = {
-  price: number;
-  size: number;
-  side: TSide;
-};
-export type TOrderBookEntry = TOrderBookEntryBase & {
-  timestamp: number;
-};
-export type TOrderBook = {
-  entries: Map<number, TOrderBookEntry>;
-  bestBid: number;
-  bestAsk: number;
-};
-
-export type TTrade = {
-  price: number;
-  direction: "buy" | "sell";
-};
-
+// SHARED
 export type TConnectStatus =
   | WebSocket["CONNECTING"]
   | WebSocket["OPEN"]
@@ -42,6 +20,30 @@ export const connectStatusName = (status: TConnectStatus | -1): string => {
     [WebSocket.CLOSING]: "Closing",
     [WebSocket.CLOSED]: "Closed",
   }[status];
+};
+export enum TSide {
+  BIDS = "bids",
+  ASKS = "asks",
+}
+export type TTrade = {
+  price: number;
+  direction: "buy" | "sell";
+};
+//
+
+type TOrderBookEntryBase = {
+  side: TSide;
+  price: number;
+  size: number;
+  total: number;
+};
+export type TOrderBookEntry = TOrderBookEntryBase & {
+  timestamp: number;
+};
+export type TOrderBook = {
+  entries: Map<number, TOrderBookEntry>;
+  bestBid: number;
+  bestAsk: number;
 };
 
 export const OrderBook = ({
@@ -63,21 +65,27 @@ export const OrderBook = ({
     const { entries, bestAsk, bestBid } = orderbook;
     const newbids: TOrderBookEntryBase[] = [];
     const newasks: TOrderBookEntryBase[] = [];
+    let newbidstotal = 0;
+    let newaskstotal = 0;
 
     for (let currDepth = 0; currDepth < depth; currDepth++) {
       let currBidPrice = bestBid - currDepth * ORDERBOOK_STEP;
       let currAskPrice = bestAsk + currDepth * ORDERBOOK_STEP;
       const entryBid = entries.get(currBidPrice);
       const entryAsk = entries.get(currAskPrice);
+      if (entryBid != null) newbidstotal += entryBid?.size;
+      if (entryAsk != null) newaskstotal += entryAsk?.size;
       newbids.push({
+        side: TSide.BIDS,
         price: currBidPrice,
         size: entryBid != null ? entryBid.size : 0,
-        side: TSide.BIDS,
+        total: newbidstotal,
       });
       newasks.unshift({
+        side: TSide.ASKS,
         price: currAskPrice,
         size: entryAsk != null ? entryAsk.size : 0,
-        side: TSide.ASKS,
+        total: newaskstotal,
       });
     }
     setBids(newbids);
@@ -87,23 +95,25 @@ export const OrderBook = ({
   if (!orderbook || !lastPrice) return null;
   return (
     <div>
-      {asks.map(({ price, size }, i) => (
+      {asks.map(({ price, size, total }, i) => (
         <OrderBookEntry
           key={`${price}-${size}`}
           isTop={i === 0}
           side={TSide.ASKS}
           price={price}
           size={size}
+          total={total}
         />
       ))}
       <div className="pl-3">{lastPrice}</div>
-      {bids.map(({ price, size }, i) => (
+      {bids.map(({ price, size, total }, i) => (
         <OrderBookEntry
           key={`${price}-${size}`}
           isTop={i === 0}
           side={TSide.BIDS}
           price={price}
           size={size}
+          total={total}
         />
       ))}
     </div>
@@ -113,6 +123,7 @@ export const OrderBook = ({
 const OrderBookEntry = ({
   price,
   size,
+  total,
   side,
   isTop,
 }: TOrderBookEntryBase & { isTop?: boolean }) => (
@@ -127,6 +138,8 @@ const OrderBookEntry = ({
     >
       {price.toFixed(1)}
     </div>
+
     <div className="flex-1">{size.toLocaleString()}</div>
+    <div className="flex-1">{total.toLocaleString()}</div>
   </div>
 );

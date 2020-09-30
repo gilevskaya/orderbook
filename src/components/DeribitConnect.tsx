@@ -42,7 +42,7 @@ export const DeribitConnect = ({
   const obBestAsk = React.useRef<number | null>(null);
 
   React.useEffect(() => {
-    var msg = {
+    const msg = {
       jsonrpc: "2.0",
       id: 3600,
       method: "public/subscribe",
@@ -54,7 +54,7 @@ export const DeribitConnect = ({
         ],
       },
     };
-    var ws = new WebSocket(WS_URL_DERIBIT);
+    const ws = new WebSocket(WS_URL_DERIBIT);
 
     ws.onmessage = (e) => {
       const message = JSON.parse(e.data);
@@ -88,10 +88,11 @@ export const DeribitConnect = ({
               obBestAsk.current = price;
             }
             obEntries.current.set(price, {
+              side,
               price,
               size,
+              total: 0,
               timestamp: data.timestamp,
-              side,
             });
             // end of "new"
           } else if (type === "change") {
@@ -101,7 +102,13 @@ export const DeribitConnect = ({
               return;
             }
             const { timestamp, side } = prevEntry;
-            obEntries.current.set(price, { price, size, timestamp, side });
+            obEntries.current.set(price, {
+              side,
+              price,
+              size,
+              total: 0,
+              timestamp,
+            });
             // end of "change"
           } else if (type === "delete") {
             if (side === "asks" && price === obBestAsk.current) {
@@ -135,7 +142,7 @@ export const DeribitConnect = ({
     ws.onclose = () => {
       setReadyState(WebSocket.CLOSED);
     };
-  }, [setOrderbook, setReadyState]);
+  }, []);
 
   return (
     <DeribitContext.Provider
