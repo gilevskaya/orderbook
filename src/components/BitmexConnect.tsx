@@ -1,11 +1,11 @@
 import React from "react";
 
 import { useWebSocket } from "../shared/useWebSocket";
-import { TOrderBook, TOrderBookEntry } from "./OrderBook";
+import { TOrderBook, TOrderBookEntry, TOrderBookSide } from "./OrderBook";
 import { TExchangeContext } from "../shared/types";
 
 const WS_URL_BITMEX =
-  "wss://www.bitmex.com/realtime?subscribe=orderBookL2_25:XBTUSD";
+  "wss://www.bitmex.com/realtime?subscribe=orderBookL2:XBTUSD,trade:XBTUSD";
 type TBitmexSide = "Sell" | "Buy";
 type TBitmexOrderBookEditData_Base = { id: number; side: TBitmexSide };
 type TBitmexOrderBookEditData = TBitmexOrderBookEditData_Base & {
@@ -13,12 +13,28 @@ type TBitmexOrderBookEditData = TBitmexOrderBookEditData_Base & {
   size: number;
   timestamp: number;
 };
-type TBitmexOrderBookEdit =
+type TBitmexOrderBookEdit = { table: "orderBookL2" } & (
   | { action: "partial"; data: TBitmexOrderBookEditData[] }
   | { action: "update"; data: TBitmexOrderBookEditData[] }
   | { action: "insert"; data: TBitmexOrderBookEditData[] }
-  | { action: "delete"; data: TBitmexOrderBookEditData_Base[] };
-type TBitmexMessage = TBitmexOrderBookEdit;
+  | { action: "delete"; data: TBitmexOrderBookEditData_Base[] }
+);
+type TBitmexTradeTickDirection =
+  | "MinusTick"
+  | "ZeroMinusTick"
+  | "PlusTick"
+  | "ZeroPlusTick";
+type TBitmexTrade = {
+  table: "trade";
+  data: Array<{
+    side: TBitmexSide;
+    price: number;
+    size: number;
+    timestamp: number;
+    tickDirection: TBitmexTradeTickDirection;
+  }>;
+};
+type TBitmexMessage = TBitmexOrderBookEdit | TBitmexTrade;
 
 export const BitmexContext = React.createContext<TExchangeContext>({
   connectStatus: -1,
@@ -35,92 +51,108 @@ export const BitmexConnect = ({
     WS_URL_BITMEX
   );
   const [orderbook, setOrderbook] = React.useState<TOrderBook | null>(null);
-  // const [lastPrice, setLastPrice] = React.useState<number | null>(null);
+  const [lastPrice, setLastPrice] = React.useState<number | null>(null);
 
-  // const obEntries = React.useRef<Map<number, TOrderBookEntry>>(new Map());
-  // const obBestBid = React.useRef<number | null>(null);
-  // const obBestAsk = React.useRef<number | null>(null);
+  const obBitmexId = React.useRef<Map<number, number>>(new Map());
+  const obEntries = React.useRef<Map<number, TOrderBookEntry> | null>(null);
+  const obBestBid = React.useRef<number | null>(null);
+  const obBestAsk = React.useRef<number | null>(null);
 
   React.useEffect(() => {
     if (!lastMessage) return;
-    switch (lastMessage.action) {
-      case "partial": {
-        //   if (orderbook != null) return;
-        //   const ob = { asks: new Map(), bids: new Map() };
-        //   message.data.forEach(({ id, price, side, size }) => {
-        //     ob[side === "Sell" ? "asks" : "bids"].set(id, { price, size });
-        //   });
-        //   setOrderbook(ob);
-        break;
-      }
+    if (lastMessage.table === "trade") {
+      lastMessage.data.forEach((d) => setLastPrice(d.price));
+    } else if (lastMessage.table === "orderBookL2") {
+      switch (lastMessage.action) {
+        case "partial":
+        case "insert": {
+          if (lastMessage.action === "partial") obEntries.current = new Map();
+          lastMessage.data.forEach(({ price, size, side: bitmexSide, id }) => {
+            const side =
+              bitmexSide === "Buy" ? TOrderBookSide.BIDS : TOrderBookSide.ASKS;
+            if (
+              side === TOrderBookSide.BIDS &&
+              (obBestBid.current == null || price > obBestBid.current)
+            ) {
+              obBestBid.current = price;
+            } else if (
+              side === TOrderBookSide.ASKS &&
+              (obBestAsk.current == null || price < obBestAsk.current)
+            ) {
+              obBestAsk.current = price;
+            }
+            obBitmexId.current.set(id, price);
+            // @ts-ignore
+            obEntries.current.set(price, {
+              side,
+              price,
+              size,
+              timestamp: id,
+              total: 0,
+            });
+          });
+          break;
+        }
 
-      case "update": {
-        // if (orderbook == null) return;
-        // const ob = {
-        //   asks: new Map(orderbook.asks),
-        //   bids: new Map(orderbook.bids),
-        // };
-        // message.data.forEach(({ id, side, size, timestamp }) => {
-        //   const s = side === "Sell" ? "asks" : "bids";
-        //   const prev = ob[s].get(id);
+        case "update": {
+          if (obEntries.current == null) return;
+          lastMessage.data.forEach(({ size, side: bitmexSide, id }) => {
+            const price = obBitmexId.current.get(id);
+            if (price == null) {
+              console.warn(`Bitmex: can't change entry: ${id}!`);
+              return;
+            }
+            const side =
+              bitmexSide === "Buy" ? TOrderBookSide.BIDS : TOrderBookSide.ASKS;
+            // @ts-ignore
+            obEntries.current.set(price, {
+              side,
+              price,
+              size,
+              timestamp: id,
+              total: 0,
+            });
+          });
+          break;
+        }
 
-        //   if (prev) {
-        //     ob[s].set(id, { size, price: prev.price, timestamp, side: s });
-        //   } else {
-        //     // updated moves the side
-        //     const opS = side === "Sell" ? "bids" : "asks";
-        //     const prevOpS = ob[opS].get(id);
-        //     if (!prevOpS) {
-        //       console.log("!! INS Can't find id in both sides");
-        //       return;
-        //     }
-        //     ob[s].delete(id);
-        //     ob[opS].set(id, { size, price: prevOpS.price, timestamp, side: s });
-        //   }
-        // });
-        // setOrderBook(ob);
-        break;
-      }
+        case "delete": {
+          if (obEntries.current == null) return;
+          lastMessage.data.forEach(({ side: bitmexSide, id }) => {
+            const price = obBitmexId.current.get(id);
+            if (price == null) {
+              console.warn(`Bitmex: can't delete entry: ${id}!`);
+              return;
+            }
+            const side =
+              bitmexSide === "Buy" ? TOrderBookSide.BIDS : TOrderBookSide.ASKS;
+            obBitmexId.current.delete(id);
+            // @ts-ignore
+            obEntries.current.delete(price);
+            if (side === "asks" && price === obBestAsk.current) {
+              obBestAsk.current = price + 0.5;
+            } else if (side === "bids" && price === obBestBid.current) {
+              obBestBid.current = price - 0.5;
+            }
+          });
+          break;
+        }
 
-      case "insert": {
-        // if (orderBook == null) return;
-        // const ob = {
-        //   asks: new Map(orderBook.asks),
-        //   bids: new Map(orderBook.bids),
-        // };
-        // message.data.forEach(({ id, side, size, price, timestamp }) => {
-        //   const s = side === "Sell" ? "asks" : "bids";
-        //   ob[s].set(id, { size, price, timestamp, side: s });
-        // });
-        // setOrderBook(ob);
-        break;
+        default: {
+          console.log("bmex ------", lastMessage);
+        }
       }
-
-      case "delete": {
-        // if (orderBook == null) return;
-        // const ob = {
-        //   asks: new Map(orderBook.asks),
-        //   bids: new Map(orderBook.bids),
-        // };
-        // message.data.forEach(({ id, side }) => {
-        //   const s = side === "Sell" ? "asks" : "bids";
-        //   if (!ob[s].get(id)) {
-        //     console.log(
-        //       "!! DEL Can't find an id, shoud not happen.",
-        //       ob.asks.get(id),
-        //       ob.bids.get(id)
-        //     );
-        //     return;
-        //   }
-        //   ob[s].delete(id);
-        // });
-        // setOrderBook(ob);
-        break;
-      }
-
-      default: {
-        console.log("bmex ------", lastMessage);
-      }
+      if (
+        obEntries.current == null ||
+        obBestBid.current == null ||
+        obBestAsk.current == null
+      )
+        return;
+      setOrderbook({
+        entries: obEntries.current,
+        bestBid: obBestBid.current,
+        bestAsk: obBestAsk.current,
+      });
     }
   }, [lastMessage]);
 
@@ -128,125 +160,11 @@ export const BitmexConnect = ({
     <BitmexContext.Provider
       value={{
         connectStatus: readyState,
-        orderbook: null,
-        lastPrice: null,
+        orderbook,
+        lastPrice,
       }}
     >
       {children}
     </BitmexContext.Provider>
   );
 };
-
-// export const bitmexOrderBook = Recoil.atom<TOrderBook | null>({
-//   key: "bitmexOrderBook",
-//   default: null,
-// });
-
-// export const bitmexConnectStatus = Recoil.atom<TConnectStatus | -1>({
-//   key: "bitmexConnectStatus",
-//   default: -1,
-// });
-
-// export const BitmexConnect = () => {
-// const setReadyState = Recoil.useSetRecoilState(bitmexConnectStatus);
-// const [orderBook, setOrderBook] = Recoil.useRecoilState(bitmexOrderBook);
-
-// const { lastMessage, readyState } = useWebSocket(WS_URL_BITMEX, {
-//   shouldReconnect: (_: CloseEvent) => true,
-//   reconnectAttempts: 1000,
-//   reconnectInterval: 1200,
-//   share: false,
-//   retryOnError: true,
-// });
-
-// React.useEffect(() => {
-//   setReadyState(readyState);
-// }, [readyState, setReadyState]);
-
-// React.useEffect(() => {
-//   if (!lastMessage || !lastMessage.data) return;
-//   const message: TBitmexOrderBookMessage = JSON.parse(lastMessage.data);
-
-//   switch (message.action) {
-//     case "partial": {
-//       if (orderBook != null) return;
-//       const ob = { asks: new Map(), bids: new Map() };
-//       message.data.forEach(({ id, price, side, size }) => {
-//         ob[side === "Sell" ? "asks" : "bids"].set(id, { price, size });
-//       });
-//       setOrderBook(ob);
-//       break;
-//     }
-
-//     case "update": {
-//       if (orderBook == null) return;
-//       const ob = {
-//         asks: new Map(orderBook.asks),
-//         bids: new Map(orderBook.bids),
-//       };
-//       message.data.forEach(({ id, side, size, timestamp }) => {
-//         const s = side === "Sell" ? "asks" : "bids";
-//         const prev = ob[s].get(id);
-
-//         if (prev) {
-//           ob[s].set(id, { size, price: prev.price, timestamp, side: s });
-//         } else {
-//           // updated moves the side
-//           const opS = side === "Sell" ? "bids" : "asks";
-//           const prevOpS = ob[opS].get(id);
-//           if (!prevOpS) {
-//             console.log("!! INS Can't find id in both sides");
-//             return;
-//           }
-//           ob[s].delete(id);
-//           ob[opS].set(id, { size, price: prevOpS.price, timestamp, side: s });
-//         }
-//       });
-//       setOrderBook(ob);
-//       break;
-//     }
-
-//     case "insert": {
-//       if (orderBook == null) return;
-//       const ob = {
-//         asks: new Map(orderBook.asks),
-//         bids: new Map(orderBook.bids),
-//       };
-//       message.data.forEach(({ id, side, size, price, timestamp }) => {
-//         const s = side === "Sell" ? "asks" : "bids";
-//         ob[s].set(id, { size, price, timestamp, side: s });
-//       });
-//       setOrderBook(ob);
-//       break;
-//     }
-
-//     case "delete": {
-//       if (orderBook == null) return;
-//       const ob = {
-//         asks: new Map(orderBook.asks),
-//         bids: new Map(orderBook.bids),
-//       };
-//       message.data.forEach(({ id, side }) => {
-//         const s = side === "Sell" ? "asks" : "bids";
-//         if (!ob[s].get(id)) {
-//           console.log(
-//             "!! DEL Can't find an id, shoud not happen.",
-//             ob.asks.get(id),
-//             ob.bids.get(id)
-//           );
-//           return;
-//         }
-//         ob[s].delete(id);
-//       });
-//       setOrderBook(ob);
-//       break;
-//     }
-
-//     default: {
-//       console.log("bmex ------", message);
-//     }
-//   }
-// }, [lastMessage, orderBook, setOrderBook]);
-
-//   return null;
-// };
