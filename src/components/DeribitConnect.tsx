@@ -90,18 +90,12 @@ export const DeribitConnect = ({
             });
             // end of "new"
           } else if (type === "change") {
-            const prevEntry = obEntries.current.get(price);
-            if (prevEntry == null) {
-              console.warn(`Deribit: can't change entry: ${price}!`);
-              return;
-            }
-            const { timestamp, side } = prevEntry;
             obEntries.current.set(price, {
               side,
               price,
               size,
               total: 0,
-              timestamp,
+              timestamp: data.timestamp,
             });
             // end of "change"
           } else if (type === "delete") {

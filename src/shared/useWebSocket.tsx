@@ -28,6 +28,8 @@ export function useWebSocket<T>(url: string) {
   const ws = React.useRef<WebSocket | null>(null);
   const messageQueue = React.useRef<WebSocketMessage[]>([]);
   const [lastMessage, setLastMessage] = React.useState<T | null>(null);
+  // WebSocket ready state fails to show clised
+  const [readyState, setReadyState] = React.useState<TConnectStatus | -1>(-1);
 
   const sendMessage: SendMessage = React.useCallback((message) => {
     if (ws.current && ws.current.readyState === WebSocket.OPEN) {
@@ -37,17 +39,20 @@ export function useWebSocket<T>(url: string) {
 
   const connect = React.useCallback((): WebSocket => {
     const newws = new WebSocket(url);
+    setReadyState(WebSocket.CONNECTING);
     newws.onopen = (e) => {
-      /*...*/
+      setReadyState(WebSocket.OPEN);
     };
     newws.onclose = (e) => {
       console.log("ws closed", e);
+      setReadyState(WebSocket.CLOSED);
       ws.current = null;
       messageQueue.current = [];
       ws.current = connect();
     };
     newws.onerror = (e) => {
       console.warn("ws error", e);
+      setReadyState(WebSocket.CLOSED);
     };
     newws.onmessage = (e) => {
       const msg = JSON.parse(e.data);
@@ -66,9 +71,5 @@ export function useWebSocket<T>(url: string) {
     }
   }, [ws, connect, sendMessage]);
 
-  return {
-    readyState: ws.current ? ws.current.readyState : -1,
-    lastMessage,
-    sendMessage,
-  };
+  return { readyState, lastMessage, sendMessage };
 }

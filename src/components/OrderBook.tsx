@@ -115,7 +115,7 @@ const OrderBookEntry = ({
     } border-dashed text-right`}
   >
     <div
-      className="flex-1"
+      className="w-16"
       style={{ color: side === TOrderBookSide.ASKS ? "red" : "green" }}
     >
       {price.toFixed(1)}
