@@ -24,7 +24,7 @@ export type WebSocketMessage =
   | ArrayBufferView;
 export type SendMessage = (message: WebSocketMessage) => void;
 
-export function useWebSocket<T>(url: string) {
+export function useWebSocket<T>(url: string, options?: { onOpen?: Function }) {
   const ws = React.useRef<WebSocket | null>(null);
   const messageQueue = React.useRef<WebSocketMessage[]>([]);
   const [lastMessage, setLastMessage] = React.useState<T | null>(null);
@@ -42,6 +42,7 @@ export function useWebSocket<T>(url: string) {
     setReadyState(WebSocket.CONNECTING);
     newws.onopen = (e) => {
       setReadyState(WebSocket.OPEN);
+      if (options?.onOpen) options.onOpen();
     };
     newws.onclose = (e) => {
       console.log("ws closed", e);
@@ -59,7 +60,7 @@ export function useWebSocket<T>(url: string) {
       setLastMessage(msg);
     };
     return newws;
-  }, [url]);
+  }, [url, options]);
 
   React.useEffect(() => {
     if (ws.current == null || ws.current.readyState === WebSocket.CLOSED) {

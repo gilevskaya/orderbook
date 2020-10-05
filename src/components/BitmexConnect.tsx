@@ -6,25 +6,26 @@ import { TExchangeContext } from "../shared/types";
 
 const WS_URL_BITMEX =
   "wss://www.bitmex.com/realtime?subscribe=orderBookL2:XBTUSD,trade:XBTUSD";
+
 type TBitmexSide = "Sell" | "Buy";
-type TBitmexOrderBookEditData_Base = { id: number; side: TBitmexSide };
-type TBitmexOrderBookEditData = TBitmexOrderBookEditData_Base & {
+type TBitmexOrderBookEdit_Base = { id: number; side: TBitmexSide };
+type TBitmexOrderBookEdit = TBitmexOrderBookEdit_Base & {
   price: number;
   size: number;
   timestamp: number;
 };
-type TBitmexOrderBookEdit = { table: "orderBookL2" } & (
-  | { action: "partial"; data: TBitmexOrderBookEditData[] }
-  | { action: "update"; data: TBitmexOrderBookEditData[] }
-  | { action: "insert"; data: TBitmexOrderBookEditData[] }
-  | { action: "delete"; data: TBitmexOrderBookEditData_Base[] }
+type TBitmexOrderbookEditMessage = { table: "orderBookL2" } & (
+  | { action: "partial"; data: TBitmexOrderBookEdit[] }
+  | { action: "update"; data: TBitmexOrderBookEdit[] }
+  | { action: "insert"; data: TBitmexOrderBookEdit[] }
+  | { action: "delete"; data: TBitmexOrderBookEdit_Base[] }
 );
 type TBitmexTradeTickDirection =
   | "MinusTick"
   | "ZeroMinusTick"
   | "PlusTick"
   | "ZeroPlusTick";
-type TBitmexTrade = {
+type TBitmexTradeMessage = {
   table: "trade";
   data: Array<{
     side: TBitmexSide;
@@ -34,7 +35,7 @@ type TBitmexTrade = {
     tickDirection: TBitmexTradeTickDirection;
   }>;
 };
-type TBitmexMessage = TBitmexOrderBookEdit | TBitmexTrade;
+type TBitmexMessage = TBitmexOrderbookEditMessage | TBitmexTradeMessage;
 
 export const BitmexContext = React.createContext<TExchangeContext>({
   connectStatus: -1,
@@ -87,7 +88,7 @@ export const BitmexConnect = ({
               side,
               price,
               size,
-              timestamp: id,
+              id,
               total: 0,
             });
           });
@@ -109,7 +110,7 @@ export const BitmexConnect = ({
               side,
               price,
               size,
-              timestamp: id,
+              id,
               total: 0,
             });
           });
