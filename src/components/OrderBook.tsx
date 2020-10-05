@@ -1,6 +1,5 @@
 import React from "react";
 
-import { BitmexContext } from "./BitmexConnect";
 import { BinanceContext } from "./BinanceConnect";
 
 export enum TOrderBookSide {
@@ -36,13 +35,12 @@ export const OrderBook = ({
   step,
   isSkipEmpty,
 }: {
-  exchange: "bitmex" | "binance";
+  exchange: "binance";
   depth: number;
   step: number;
   isSkipEmpty?: boolean;
 }) => {
   const exchangeContext = {
-    bitmex: BitmexContext,
     binance: BinanceContext,
   };
   const { orderbook, lastPrice } = React.useContext(exchangeContext[exchange]);
@@ -143,7 +141,7 @@ const OrderBookEntry = ({
       {price.toFixed(decimals)}
     </div>
 
-    <div className="flex-1">{size.toLocaleString()}</div>
+    <div className="flex-1 text-gray-600">{size.toLocaleString()}</div>
     <div className="flex-1">{total.toLocaleString()}</div>
   </div>
 );
@@ -243,24 +241,11 @@ export const NewOrderBook = ({
 
 export function applyExchangeOrderBookEdits<T>(
   orderbook: TOrderBook | null,
-  asks: T[] = [],
-  bids: T[] = [],
-  mapEditFormat: Function
-): TOrderBook {
-  const edits: Array<{
+  edits: Array<{
     side: TOrderBookSide;
     edit: TOrderBookEdit;
-  }> = [
-    ...asks.map((edit) => ({
-      side: TOrderBookSide.ASKS,
-      edit: mapEditFormat(edit),
-    })),
-    ...bids.map((edit) => ({
-      side: TOrderBookSide.BIDS,
-      edit: mapEditFormat(edit),
-    })),
-  ];
-
+  }>
+): TOrderBook | null {
   if (orderbook == null) {
     orderbook = { entries: new Map(), bestBid: -1, bestAsk: -1 };
   }
@@ -286,5 +271,6 @@ export function applyExchangeOrderBookEdits<T>(
     }
     orderbook.entries.set(price, { side, price, size, total: 0, id });
   }
+  if (orderbook.bestBid === -1 || orderbook.bestAsk === -1) return null;
   return { ...orderbook };
 }

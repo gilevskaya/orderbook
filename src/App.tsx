@@ -2,21 +2,17 @@ import React from "react";
 import Dashboard from "react-grid-dashboard";
 
 import { useDeribitConnect } from "./components/DeribitConnect";
-import { BitmexConnect, BitmexContext } from "./components/BitmexConnect";
-import { BinanceConnect, BinanceContext } from "./components/BinanceConnect";
+import { useBitmexConnect } from "./components/BitmexConnect";
+import { BinanceContext } from "./components/BinanceConnect";
 
 import { OrderBook, NewOrderBook } from "./components/OrderBook";
 import { connectStatusName } from "./shared/useWebSocket";
 
 function App() {
-  // <BitmexConnect>
-  //   <BinanceConnect>
   return (
     <div className="h-screen bg-gray-900 text-gray-200 p-1 flex flex-col">
       <OrderBookPage />
     </div>
-    //   </BinanceConnect>
-    // </BitmexConnect>
   );
 }
 
@@ -31,15 +27,19 @@ const Widget = ({
 );
 
 const OrderBookPage = () => {
-  const { connectStatus: bitmexConn } = React.useContext(BitmexContext);
   const { connectStatus: binanceConn } = React.useContext(BinanceContext);
   const {
     readyState: deribitConn,
     orderbook: deribitOrderbook,
     lastPrice: deribitLastPrice,
   } = useDeribitConnect();
+  const {
+    readyState: bitmexConn,
+    orderbook: bitmexOrderbook,
+    lastPrice: bitmexLastPrice,
+  } = useBitmexConnect();
 
-  const depth = 15;
+  const depth = 20;
 
   return (
     <Dashboard
@@ -82,7 +82,14 @@ const OrderBookPage = () => {
                 {connectStatusName(bitmexConn)}
               </span>
             </div>
-            <OrderBook exchange="bitmex" depth={depth} step={0.5} />
+            {bitmexOrderbook && bitmexLastPrice && (
+              <NewOrderBook
+                orderbook={bitmexOrderbook}
+                lastPrice={bitmexLastPrice}
+                depth={depth}
+                step={0.5}
+              />
+            )}
           </div>
         </Widget>
       </Dashboard.Item>

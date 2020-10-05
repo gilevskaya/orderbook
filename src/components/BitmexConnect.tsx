@@ -1,8 +1,11 @@
 import React from "react";
 
 import { useWebSocket } from "../shared/useWebSocket";
-import { TOrderBook, TOrderBookEntry, TOrderBookSide } from "./OrderBook";
-import { TExchangeContext } from "../shared/types";
+import {
+  applyExchangeOrderBookEdits,
+  TOrderBook,
+  TOrderBookSide,
+} from "./OrderBook";
 
 const WS_URL_BITMEX =
   "wss://www.bitmex.com/realtime?subscribe=orderBookL2:XBTUSD,trade:XBTUSD";
@@ -37,135 +40,64 @@ type TBitmexTradeMessage = {
 };
 type TBitmexMessage = TBitmexOrderbookEditMessage | TBitmexTradeMessage;
 
-export const BitmexContext = React.createContext<TExchangeContext>({
-  connectStatus: -1,
-  orderbook: null,
-  lastPrice: null,
-});
-
-export const BitmexConnect = ({
-  children,
-}: {
-  children: React.ReactChild | React.ReactChildren;
-}) => {
+export const useBitmexConnect = () => {
   const { readyState, lastMessage } = useWebSocket<TBitmexMessage>(
     WS_URL_BITMEX
   );
   const [orderbook, setOrderbook] = React.useState<TOrderBook | null>(null);
   const [lastPrice, setLastPrice] = React.useState<number | null>(null);
-
   const obBitmexId = React.useRef<Map<number, number>>(new Map());
-  const obEntries = React.useRef<Map<number, TOrderBookEntry> | null>(null);
-  const obBestBid = React.useRef<number | null>(null);
-  const obBestAsk = React.useRef<number | null>(null);
 
   React.useEffect(() => {
     if (!lastMessage) return;
-    if (lastMessage.table === "trade") {
-      lastMessage.data.forEach((d) => setLastPrice(d.price));
-    } else if (lastMessage.table === "orderBookL2") {
-      switch (lastMessage.action) {
-        case "partial":
-        case "insert": {
-          if (lastMessage.action === "partial") obEntries.current = new Map();
-          lastMessage.data.forEach(({ price, size, side: bitmexSide, id }) => {
-            const side =
-              bitmexSide === "Buy" ? TOrderBookSide.BIDS : TOrderBookSide.ASKS;
-            if (
-              side === TOrderBookSide.BIDS &&
-              (obBestBid.current == null || price > obBestBid.current)
-            ) {
-              obBestBid.current = price;
-            } else if (
-              side === TOrderBookSide.ASKS &&
-              (obBestAsk.current == null || price < obBestAsk.current)
-            ) {
-              obBestAsk.current = price;
-            }
+    switch (lastMessage.table) {
+      case "orderBookL2": {
+        if (
+          lastMessage.action === "partial" ||
+          lastMessage.action === "insert"
+        ) {
+          const edits = lastMessage.data.map(({ id, side, size, price }) => {
             obBitmexId.current.set(id, price);
-            // @ts-ignore
-            obEntries.current.set(price, {
-              side,
-              price,
-              size,
-              id,
-              total: 0,
-            });
+            return {
+              side: side === "Buy" ? TOrderBookSide.BIDS : TOrderBookSide.ASKS,
+              edit: { id, size, price },
+            };
           });
-          break;
-        }
-
-        case "update": {
-          if (obEntries.current == null) return;
-          lastMessage.data.forEach(({ size, side: bitmexSide, id }) => {
-            const price = obBitmexId.current.get(id);
-            if (price == null) {
-              console.warn(`Bitmex: can't change entry: ${id}!`);
-              return;
-            }
-            const side =
-              bitmexSide === "Buy" ? TOrderBookSide.BIDS : TOrderBookSide.ASKS;
-            // @ts-ignore
-            obEntries.current.set(price, {
-              side,
-              price,
-              size,
-              id,
-              total: 0,
-            });
+          setOrderbook((ob) =>
+            applyExchangeOrderBookEdits<TBitmexOrderBookEdit>(
+              lastMessage.action === "partial" ? null : ob,
+              edits
+            )
+          );
+        } else if (
+          lastMessage.action === "update" ||
+          lastMessage.action === "delete"
+        ) {
+          // @ts-ignore
+          const edits = lastMessage.data.map((edit) => {
+            const { id, side } = edit;
+            const price = obBitmexId.current.get(id) || 0; // >.<
+            const size = lastMessage.action === "update" ? edit.size : 0;
+            return {
+              side: side === "Buy" ? TOrderBookSide.BIDS : TOrderBookSide.ASKS,
+              edit: { id, size, price },
+            };
           });
-          break;
+          setOrderbook((ob) =>
+            applyExchangeOrderBookEdits<TBitmexOrderBookEdit>(ob, edits)
+          );
         }
-
-        case "delete": {
-          if (obEntries.current == null) return;
-          lastMessage.data.forEach(({ side: bitmexSide, id }) => {
-            const price = obBitmexId.current.get(id);
-            if (price == null) {
-              console.warn(`Bitmex: can't delete entry: ${id}!`);
-              return;
-            }
-            const side =
-              bitmexSide === "Buy" ? TOrderBookSide.BIDS : TOrderBookSide.ASKS;
-            obBitmexId.current.delete(id);
-            // @ts-ignore
-            obEntries.current.delete(price);
-            if (side === "asks" && price === obBestAsk.current) {
-              obBestAsk.current = price + 0.5;
-            } else if (side === "bids" && price === obBestBid.current) {
-              obBestBid.current = price - 0.5;
-            }
-          });
-          break;
-        }
-
-        default: {
-          console.log("bmex ------", lastMessage);
-        }
+        break;
       }
-      if (
-        obEntries.current == null ||
-        obBestBid.current == null ||
-        obBestAsk.current == null
-      )
-        return;
-      setOrderbook({
-        entries: obEntries.current,
-        bestBid: obBestBid.current,
-        bestAsk: obBestAsk.current,
-      });
+      case "trade": {
+        lastMessage.data.forEach((d) => setLastPrice(d.price));
+        break;
+      }
+      default: {
+        console.log("bitmex", lastMessage);
+      }
     }
   }, [lastMessage]);
 
-  return (
-    <BitmexContext.Provider
-      value={{
-        connectStatus: readyState,
-        orderbook,
-        lastPrice,
-      }}
-    >
-      {children}
-    </BitmexContext.Provider>
-  );
+  return { readyState, orderbook, lastPrice };
 };
