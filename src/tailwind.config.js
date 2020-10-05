@@ -225,6 +225,7 @@ module.exports = {
     },
     flex: {
       1: "1 1 0%",
+      2: "2 2 0%",
       auto: "1 1 auto",
       initial: "0 1 auto",
       none: "none",
@@ -264,7 +265,7 @@ module.exports = {
       ],
     },
     fontSize: {
-      xs: "0.70rem",
+      xs: "0.55rem",
       sm: "0.785rem",
       base: "0.9rem",
       lg: "1rem",
