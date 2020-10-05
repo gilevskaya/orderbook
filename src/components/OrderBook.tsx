@@ -1,7 +1,5 @@
 import React from "react";
 
-import { BinanceContext } from "./BinanceConnect";
-
 export enum TOrderBookSide {
   BIDS = "bids",
   ASKS = "asks",
@@ -30,123 +28,6 @@ export type TOrderBook = {
 };
 
 export const OrderBook = ({
-  exchange,
-  depth,
-  step,
-  isSkipEmpty,
-}: {
-  exchange: "binance";
-  depth: number;
-  step: number;
-  isSkipEmpty?: boolean;
-}) => {
-  const exchangeContext = {
-    binance: BinanceContext,
-  };
-  const { orderbook, lastPrice } = React.useContext(exchangeContext[exchange]);
-  const [bids, setBids] = React.useState<TOrderBookEntryBase[]>([]);
-  const [asks, setAsks] = React.useState<TOrderBookEntryBase[]>([]);
-
-  const decimals = step.toString().split(".")[1].length || 0;
-
-  React.useEffect(() => {
-    if (orderbook == null) return;
-    const { entries, bestAsk, bestBid } = orderbook;
-    const newbids: TOrderBookEntryBase[] = [];
-    const newasks: TOrderBookEntryBase[] = [];
-    let newbidstotal = 0;
-    let newaskstotal = 0;
-
-    let currDepth = 0;
-
-    while (isSkipEmpty ? currDepth < depth : currDepth < depth) {
-      let currBidPrice = bestBid - currDepth * step;
-      let currAskPrice = bestAsk + currDepth * step;
-      const entryBid = entries.get(currBidPrice);
-      const entryAsk = entries.get(currAskPrice);
-      if (entryBid != null) newbidstotal += entryBid?.size;
-      if (entryAsk != null) newaskstotal += entryAsk?.size;
-
-      const size = entryBid != null ? entryBid.size : 0;
-      if (!isSkipEmpty || size !== 0) {
-        newbids.push({
-          side: TOrderBookSide.BIDS,
-          price: currBidPrice,
-          size,
-          total: newbidstotal,
-        });
-        newasks.unshift({
-          side: TOrderBookSide.ASKS,
-          price: currAskPrice,
-          size,
-          total: newaskstotal,
-        });
-      }
-      currDepth++;
-    }
-    setBids(newbids);
-    setAsks(newasks);
-  }, [orderbook, depth, isSkipEmpty, step]);
-
-  if (!orderbook || !lastPrice) return null;
-  return (
-    <div>
-      {asks.map(({ price, size, total }, i) => (
-        <OrderBookEntry
-          key={`${price}-${size}`}
-          isTop={i === 0}
-          decimals={decimals}
-          side={TOrderBookSide.ASKS}
-          price={price}
-          size={size}
-          total={total}
-        />
-      ))}
-      <div className="flex py-1">
-        <div className="flex-1 text-right">{lastPrice.toFixed(decimals)}</div>
-        <div className="" style={{ flex: "2 2 0%" }}></div>
-      </div>
-      {bids.map(({ price, size, total }, i) => (
-        <OrderBookEntry
-          key={`${price}-${size}`}
-          isTop={i === 0}
-          decimals={decimals}
-          side={TOrderBookSide.BIDS}
-          price={price}
-          size={size}
-          total={total}
-        />
-      ))}
-    </div>
-  );
-};
-
-const OrderBookEntry = ({
-  price,
-  size,
-  total,
-  side,
-  decimals,
-  isTop,
-}: TOrderBookEntryBase & { isTop?: boolean; decimals: number }) => (
-  <div
-    className={`font-mono flex text-xs flex border-gray-700 border-b ${
-      isTop ? "border-t" : ""
-    } border-dashed text-right`}
-  >
-    <div
-      className="w-16"
-      style={{ color: side === TOrderBookSide.ASKS ? "red" : "green" }}
-    >
-      {price.toFixed(decimals)}
-    </div>
-
-    <div className="flex-1 text-gray-600">{size.toLocaleString()}</div>
-    <div className="flex-1">{total.toLocaleString()}</div>
-  </div>
-);
-
-export const NewOrderBook = ({
   orderbook,
   lastPrice,
   depth,
@@ -238,6 +119,33 @@ export const NewOrderBook = ({
     </div>
   );
 };
+
+const OrderBookEntry = ({
+  price,
+  size,
+  total,
+  side,
+  decimals,
+  isTop,
+}: TOrderBookEntryBase & { isTop?: boolean; decimals: number }) => (
+  <div
+    className={`font-mono flex text-xs flex border-gray-700 border-b ${
+      isTop ? "border-t" : ""
+    } border-dashed text-right`}
+  >
+    <div
+      className="w-16"
+      style={{ color: side === TOrderBookSide.ASKS ? "red" : "green" }}
+    >
+      {price.toFixed(decimals)}
+    </div>
+
+    <div className="flex-1 text-gray-600">{size.toLocaleString()}</div>
+    <div className="flex-1">{total.toLocaleString()}</div>
+  </div>
+);
+
+// ...
 
 export function applyExchangeOrderBookEdits<T>(
   orderbook: TOrderBook | null,

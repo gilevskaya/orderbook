@@ -3,9 +3,9 @@ import Dashboard from "react-grid-dashboard";
 
 import { useDeribitConnect } from "./components/DeribitConnect";
 import { useBitmexConnect } from "./components/BitmexConnect";
-import { BinanceContext } from "./components/BinanceConnect";
+import { useBinanceConnect } from "./components/BinanceConnect";
 
-import { OrderBook, NewOrderBook } from "./components/OrderBook";
+import { OrderBook } from "./components/OrderBook";
 import { connectStatusName } from "./shared/useWebSocket";
 
 function App() {
@@ -27,7 +27,6 @@ const Widget = ({
 );
 
 const OrderBookPage = () => {
-  const { connectStatus: binanceConn } = React.useContext(BinanceContext);
   const {
     readyState: deribitConn,
     orderbook: deribitOrderbook,
@@ -38,6 +37,11 @@ const OrderBookPage = () => {
     orderbook: bitmexOrderbook,
     lastPrice: bitmexLastPrice,
   } = useBitmexConnect();
+  const {
+    readyState: binanceConn,
+    orderbook: binanceOrderbook,
+    lastPrice: binanceLastPrice,
+  } = useBinanceConnect();
 
   const depth = 20;
 
@@ -62,7 +66,7 @@ const OrderBookPage = () => {
               </span>
             </div>
             {deribitOrderbook && deribitLastPrice && (
-              <NewOrderBook
+              <OrderBook
                 orderbook={deribitOrderbook}
                 lastPrice={deribitLastPrice}
                 depth={depth}
@@ -83,7 +87,7 @@ const OrderBookPage = () => {
               </span>
             </div>
             {bitmexOrderbook && bitmexLastPrice && (
-              <NewOrderBook
+              <OrderBook
                 orderbook={bitmexOrderbook}
                 lastPrice={bitmexLastPrice}
                 depth={depth}
@@ -103,12 +107,15 @@ const OrderBookPage = () => {
                 {connectStatusName(binanceConn)}
               </span>
             </div>
-            <OrderBook
-              exchange="binance"
-              depth={depth}
-              step={0.01}
-              isSkipEmpty={true}
-            />
+            {bitmexOrderbook && bitmexLastPrice && (
+              <OrderBook
+                orderbook={binanceOrderbook}
+                lastPrice={binanceLastPrice}
+                depth={depth}
+                step={0.01}
+                isSkipEmpty={true}
+              />
+            )}
           </div>
         </Widget>
       </Dashboard.Item>
