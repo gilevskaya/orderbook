@@ -9,9 +9,9 @@ import { OrderBook, NewOrderBook } from "./components/OrderBook";
 import { connectStatusName } from "./shared/useWebSocket";
 
 function App() {
+  // <BitmexConnect>
+  //   <BinanceConnect>
   return (
-    // <BitmexConnect>
-    //   <BinanceConnect>
     <div className="h-screen bg-gray-900 text-gray-200 p-1 flex flex-col">
       <OrderBookPage />
     </div>
