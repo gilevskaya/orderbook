@@ -38,6 +38,7 @@ const OrderBookPage = () => {
     orderbook: deribitOrderbook,
     lastPrice: deribitLastPrice,
   } = useDeribitConnect();
+
   const depth = 15;
 
   return (

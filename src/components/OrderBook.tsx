@@ -70,9 +70,6 @@ export const OrderBook = ({
       if (entryAsk != null) newaskstotal += entryAsk?.size;
 
       const size = entryBid != null ? entryBid.size : 0;
-      // if (exchange === "binance") {
-      //   console.log("::", size, newbids.length, currDepth);
-      // }
       if (!isSkipEmpty || size !== 0) {
         newbids.push({
           side: TOrderBookSide.BIDS,
@@ -171,7 +168,6 @@ export const NewOrderBook = ({
 
   React.useEffect(() => {
     if (orderbook == null) return;
-    console.log("OB", orderbook);
     const { entries, bestAsk, bestBid } = orderbook;
     const newbids: TOrderBookEntryBase[] = [];
     const newasks: TOrderBookEntryBase[] = [];
@@ -187,19 +183,22 @@ export const NewOrderBook = ({
       const entryAsk = entries.get(currAskPrice);
       if (entryBid != null) newbidstotal += entryBid?.size;
       if (entryAsk != null) newaskstotal += entryAsk?.size;
-
-      const size = entryBid != null ? entryBid.size : 0;
-      if (!isSkipEmpty || size !== 0) {
+      //
+      const sizeBid = entryBid != null ? entryBid.size : 0;
+      const sizeAsk = entryAsk != null ? entryAsk.size : 0;
+      if (!isSkipEmpty || sizeBid !== 0) {
         newbids.push({
           side: TOrderBookSide.BIDS,
           price: currBidPrice,
-          size,
+          size: sizeBid,
           total: newbidstotal,
         });
+      }
+      if (!isSkipEmpty || sizeAsk !== 0) {
         newasks.unshift({
           side: TOrderBookSide.ASKS,
           price: currAskPrice,
-          size,
+          size: sizeAsk,
           total: newaskstotal,
         });
       }
@@ -214,7 +213,7 @@ export const NewOrderBook = ({
     <div>
       {asks.map(({ price, size, total }, i) => (
         <OrderBookEntry
-          key={`${price}-${size}`}
+          key={`a-${price}-${size}`}
           isTop={i === 0}
           decimals={decimals}
           side={TOrderBookSide.ASKS}
@@ -229,7 +228,7 @@ export const NewOrderBook = ({
       </div>
       {bids.map(({ price, size, total }, i) => (
         <OrderBookEntry
-          key={`${price}-${size}`}
+          key={`b-${price}-${size}`}
           isTop={i === 0}
           decimals={decimals}
           side={TOrderBookSide.BIDS}
@@ -268,7 +267,13 @@ export function applyExchangeOrderBookEdits<T>(
 
   for (const { side, edit } of edits) {
     const { price, size, id } = edit;
-    if (
+    if (size === 0) {
+      if (side === "asks" && price === orderbook.bestAsk) {
+        orderbook.bestAsk = price + 0.5;
+      } else if (side === "bids" && price === orderbook.bestBid) {
+        orderbook.bestBid = price - 0.5;
+      }
+    } else if (
       side === TOrderBookSide.BIDS &&
       (orderbook.bestBid === -1 || price > orderbook.bestBid)
     ) {
@@ -281,6 +286,5 @@ export function applyExchangeOrderBookEdits<T>(
     }
     orderbook.entries.set(price, { side, price, size, total: 0, id });
   }
-  console.log("ooo", orderbook);
-  return orderbook;
+  return { ...orderbook };
 }

@@ -69,10 +69,6 @@ export const useDeribitConnect = () => {
         break;
       }
       case "ticker.BTC-PERPETUAL.raw": {
-        console.log(
-          "lastMessage.params.data.last_price",
-          lastMessage.params.data.last_price
-        );
         setLastPrice(lastMessage.params.data.last_price);
         break;
       }
