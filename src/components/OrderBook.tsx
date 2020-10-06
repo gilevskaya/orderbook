@@ -155,7 +155,8 @@ export function applyExchangeOrderBookEdits<T>(
   edits: Array<{
     side: TOrderBookSide;
     edit: TOrderBookEdit;
-  }>
+  }>,
+  step: number = 0.5
 ): TOrderBook | null {
   if (orderbook == null) {
     orderbook = { entries: new Map(), bestBid: -1, bestAsk: -1 };
@@ -163,11 +164,13 @@ export function applyExchangeOrderBookEdits<T>(
 
   for (const { side, edit } of edits) {
     const { price, size, id } = edit;
+    orderbook.entries.set(price, { side, price, size, total: 0, id });
+
     if (size === 0) {
-      if (side === "asks" && price === orderbook.bestAsk) {
-        orderbook.bestAsk = price + 0.5;
-      } else if (side === "bids" && price === orderbook.bestBid) {
-        orderbook.bestBid = price - 0.5;
+      if (side === TOrderBookSide.ASKS && price === orderbook.bestAsk) {
+        orderbook.bestAsk = price + step;
+      } else if (side === TOrderBookSide.BIDS && price === orderbook.bestBid) {
+        orderbook.bestBid = price - step;
       }
     } else if (
       side === TOrderBookSide.BIDS &&
@@ -180,7 +183,6 @@ export function applyExchangeOrderBookEdits<T>(
     ) {
       orderbook.bestAsk = price;
     }
-    orderbook.entries.set(price, { side, price, size, total: 0, id });
   }
   if (orderbook.bestBid === -1 || orderbook.bestAsk === -1) return null;
   return { ...orderbook };

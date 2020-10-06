@@ -4,13 +4,11 @@ import { useWebSocket } from "../shared/useWebSocket";
 import {
   applyExchangeOrderBookEdits,
   TOrderBook,
-  TOrderBookEdit,
-  TOrderBookEntries,
   TOrderBookSide,
 } from "./OrderBook";
-import { TExchangeContext } from "../shared/types";
 
 const WS_URL_BINANCE = "wss://stream.binance.com/ws";
+const OB_STEP_BINANCE = 0.01;
 
 type TBinanceOrderBookEdit = [string, number]; // price, sizeBTC
 type TBinanceOrderbookMessage = {
@@ -48,27 +46,6 @@ export const useBinanceConnect = () => {
   const [orderbook, setOrderbook] = React.useState<TOrderBook | null>(null);
   const [lastPrice, setLastPrice] = React.useState<number | null>(null);
 
-  const mapEditFormat = (id: number) => (edit: TBinanceOrderBookEdit) => {
-    const [priceStr, sizeBTC] = edit;
-    const price = parseFloat(priceStr) || 0;
-    return { id, price, size: Math.round(sizeBTC * price) };
-  };
-
-  const convertEdits = (
-    asks: TBinanceOrderBookEdit[],
-    bids: TBinanceOrderBookEdit[],
-    lastUpdateId: number
-  ) => [
-    ...asks.map((edit: TBinanceOrderBookEdit) => ({
-      side: TOrderBookSide.ASKS,
-      edit: mapEditFormat(lastUpdateId)(edit),
-    })),
-    ...bids.map((edit: TBinanceOrderBookEdit) => ({
-      side: TOrderBookSide.BIDS,
-      edit: mapEditFormat(lastUpdateId)(edit),
-    })),
-  ];
-
   React.useEffect(() => {
     const oReq = new XMLHttpRequest();
     oReq.addEventListener("load", (e: any) => {
@@ -77,7 +54,8 @@ export const useBinanceConnect = () => {
       setOrderbook(() =>
         applyExchangeOrderBookEdits<TBinanceOrderBookEdit>(
           null,
-          convertEdits(asks, bids, lastUpdateId)
+          convertEdits(asks, bids, lastUpdateId),
+          OB_STEP_BINANCE
         )
       );
       // const filtered = new Map();
@@ -103,14 +81,15 @@ export const useBinanceConnect = () => {
     if (!lastMessage) return;
     switch (lastMessage.e) {
       case "depthUpdate": {
-        if (orderbook == null) return;
         const { u: lastUpdateId, a: asks, b: bids } = lastMessage;
-        setOrderbook((ob) =>
-          applyExchangeOrderBookEdits<TBinanceOrderBookEdit>(
+        setOrderbook((ob) => {
+          if (ob == null) return null;
+          return applyExchangeOrderBookEdits<TBinanceOrderBookEdit>(
             ob,
-            convertEdits(asks, bids, lastUpdateId)
-          )
-        );
+            convertEdits(asks, bids, lastUpdateId),
+            OB_STEP_BINANCE
+          );
+        });
         break;
       }
       case "24hrTicker": {
@@ -130,6 +109,27 @@ export const useBinanceConnect = () => {
     lastPrice,
   };
 };
+
+const mapEditFormat = (id: number) => (edit: TBinanceOrderBookEdit) => {
+  const [priceStr, sizeBTC] = edit;
+  const price = parseFloat(priceStr) || 0;
+  return { id, price, size: Math.round(sizeBTC * price) };
+};
+
+const convertEdits = (
+  asks: TBinanceOrderBookEdit[],
+  bids: TBinanceOrderBookEdit[],
+  lastUpdateId: number
+) => [
+  ...asks.map((edit: TBinanceOrderBookEdit) => ({
+    side: TOrderBookSide.ASKS,
+    edit: mapEditFormat(lastUpdateId)(edit),
+  })),
+  ...bids.map((edit: TBinanceOrderBookEdit) => ({
+    side: TOrderBookSide.BIDS,
+    edit: mapEditFormat(lastUpdateId)(edit),
+  })),
+];
 
 // export const BinanceConnect = ({
 //   children,
