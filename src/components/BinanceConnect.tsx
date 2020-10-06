@@ -1,7 +1,13 @@
 import React from "react";
 
 import { useWebSocket } from "../shared/useWebSocket";
-import { TOrderBook, TOrderBookEntries, TOrderBookSide } from "./OrderBook";
+import {
+  applyExchangeOrderBookEdits,
+  TOrderBook,
+  TOrderBookEdit,
+  TOrderBookEntries,
+  TOrderBookSide,
+} from "./OrderBook";
 import { TExchangeContext } from "../shared/types";
 
 const WS_URL_BINANCE = "wss://stream.binance.com/ws";
@@ -39,11 +45,89 @@ export const useBinanceConnect = () => {
       );
     },
   });
+  const [orderbook, setOrderbook] = React.useState<TOrderBook | null>(null);
+  const [lastPrice, setLastPrice] = React.useState<number | null>(null);
+
+  const mapEditFormat = (id: number) => (edit: TBinanceOrderBookEdit) => {
+    const [priceStr, sizeBTC] = edit;
+    const price = parseFloat(priceStr) || 0;
+    return { id, price, size: Math.round(sizeBTC * price) };
+  };
+
+  const convertEdits = (
+    asks: TBinanceOrderBookEdit[],
+    bids: TBinanceOrderBookEdit[],
+    lastUpdateId: number
+  ) => [
+    ...asks.map((edit: TBinanceOrderBookEdit) => ({
+      side: TOrderBookSide.ASKS,
+      edit: mapEditFormat(lastUpdateId)(edit),
+    })),
+    ...bids.map((edit: TBinanceOrderBookEdit) => ({
+      side: TOrderBookSide.BIDS,
+      edit: mapEditFormat(lastUpdateId)(edit),
+    })),
+  ];
+
+  React.useEffect(() => {
+    const oReq = new XMLHttpRequest();
+    oReq.addEventListener("load", (e: any) => {
+      const data = JSON.parse(e.currentTarget.response);
+      const { lastUpdateId, bids, asks } = data;
+      setOrderbook(() =>
+        applyExchangeOrderBookEdits<TBinanceOrderBookEdit>(
+          null,
+          convertEdits(asks, bids, lastUpdateId)
+        )
+      );
+      // const filtered = new Map();
+      // if (obEntries.current != null) {
+      //   obEntries.current.forEach((e, price) => {
+      //     if (e.id > lastUpdateId) filtered.set(price, e);
+      //   });
+      //   obEntries.current = filtered;
+      // }
+      // const tt = { entries: new Map(), bestAsk: 0, bestBid: 0 };
+      // console.log("tt1", tt);
+      // applyExchangeOrderBookEdits(tt);
+      // console.log("tt2", tt);
+    });
+    oReq.open(
+      "GET",
+      "https://www.binance.com/api/v1/depth?symbol=BTCUSDT&limit=1000"
+    );
+    oReq.send();
+  }, []);
+
+  React.useEffect(() => {
+    if (!lastMessage) return;
+    switch (lastMessage.e) {
+      case "depthUpdate": {
+        if (orderbook == null) return;
+        const { u: lastUpdateId, a: asks, b: bids } = lastMessage;
+        setOrderbook((ob) =>
+          applyExchangeOrderBookEdits<TBinanceOrderBookEdit>(
+            ob,
+            convertEdits(asks, bids, lastUpdateId)
+          )
+        );
+        break;
+      }
+      case "24hrTicker": {
+        const lastPrice = parseFloat(lastMessage.c);
+        setLastPrice(lastPrice);
+        break;
+      }
+      default: {
+        console.log("binance", lastMessage);
+      }
+    }
+  }, [lastMessage]);
 
   return {
     readyState,
-    orderbook: { entries: new Map(), bestBid: -1, bestAsk: -1 },
-    lastPrice: 0,
+    orderbook, // : { entries: new Map(), bestBid: -1, bestAsk: -1 }
+    lastPrice,
   };
 };
 

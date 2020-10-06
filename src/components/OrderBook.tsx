@@ -52,10 +52,13 @@ export const OrderBook = ({
     const newasks: TOrderBookEntryBase[] = [];
     let newbidstotal = 0;
     let newaskstotal = 0;
-
     let currDepth = 0;
 
-    while (isSkipEmpty ? currDepth < depth : currDepth < depth) {
+    while (
+      isSkipEmpty
+        ? newbids.length < depth || newasks.length < depth
+        : currDepth < depth
+    ) {
       let currBidPrice = bestBid - currDepth * step;
       let currAskPrice = bestAsk + currDepth * step;
       const entryBid = entries.get(currBidPrice);
@@ -65,7 +68,7 @@ export const OrderBook = ({
       //
       const sizeBid = entryBid != null ? entryBid.size : 0;
       const sizeAsk = entryAsk != null ? entryAsk.size : 0;
-      if (!isSkipEmpty || sizeBid !== 0) {
+      if ((!isSkipEmpty || sizeBid !== 0) && newbids.length < depth) {
         newbids.push({
           side: TOrderBookSide.BIDS,
           price: currBidPrice,
@@ -73,7 +76,7 @@ export const OrderBook = ({
           total: newbidstotal,
         });
       }
-      if (!isSkipEmpty || sizeAsk !== 0) {
+      if ((!isSkipEmpty || sizeAsk !== 0) && newasks.length < depth) {
         newasks.unshift({
           side: TOrderBookSide.ASKS,
           price: currAskPrice,

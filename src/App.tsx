@@ -107,7 +107,7 @@ const OrderBookPage = () => {
                 {connectStatusName(binanceConn)}
               </span>
             </div>
-            {bitmexOrderbook && bitmexLastPrice && (
+            {binanceOrderbook && binanceLastPrice && (
               <OrderBook
                 orderbook={binanceOrderbook}
                 lastPrice={binanceLastPrice}
