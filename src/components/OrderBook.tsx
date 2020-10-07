@@ -42,6 +42,7 @@ export const OrderBook = ({
 }) => {
   const [bids, setBids] = React.useState<TOrderBookEntryBase[]>([]);
   const [asks, setAsks] = React.useState<TOrderBookEntryBase[]>([]);
+  const [maxTotal, setMaxTotal] = React.useState<number | null>(null);
 
   const decimals = step.toString().split(".")[1].length || 0;
 
@@ -88,9 +89,10 @@ export const OrderBook = ({
     }
     setBids(newbids);
     setAsks(newasks);
+    setMaxTotal(Math.max(newbids[newbids.length - 1].total, newasks[0].total));
   }, [orderbook, depth, isSkipEmpty, step]);
 
-  if (!orderbook || !lastPrice) return null;
+  if (!orderbook || !lastPrice || !maxTotal) return null;
   return (
     <div>
       {asks.map(({ price, size, total }, i) => (
@@ -102,6 +104,7 @@ export const OrderBook = ({
           price={price}
           size={size}
           total={total}
+          maxTotal={maxTotal}
         />
       ))}
       <div className="flex py-1">
@@ -117,6 +120,7 @@ export const OrderBook = ({
           price={price}
           size={size}
           total={total}
+          maxTotal={maxTotal}
         />
       ))}
     </div>
@@ -130,23 +134,36 @@ const OrderBookEntry = ({
   side,
   decimals,
   isTop,
-}: TOrderBookEntryBase & { isTop?: boolean; decimals: number }) => (
-  <div
-    className={`font-mono flex text-xs flex border-gray-700 border-b ${
-      isTop ? "border-t" : ""
-    } border-dashed text-right`}
-  >
+  maxTotal,
+}: TOrderBookEntryBase & {
+  isTop?: boolean;
+  decimals: number;
+  maxTotal: number;
+}) => {
+  const text = side === TOrderBookSide.ASKS ? "text-red-500" : "text-green-500";
+  const bg = side === TOrderBookSide.ASKS ? "bg-red-600" : "bg-green-700";
+  const bgWidth = Math.round((total / maxTotal) * 95); // 95 instead of 100 to make it pretty
+  return (
     <div
-      className="w-16"
-      style={{ color: side === TOrderBookSide.ASKS ? "red" : "green" }}
+      className={`font-mono flex text-xs flex border-gray-700 border-b ${
+        isTop ? "border-t" : ""
+      } border-dashed text-right`}
     >
-      {price.toFixed(decimals)}
-    </div>
+      <div className={`w-16 ${text}`}>{price.toFixed(decimals)}</div>
 
-    <div className="flex-1 text-gray-600">{size.toLocaleString()}</div>
-    <div className="flex-1">{total.toLocaleString()}</div>
-  </div>
-);
+      <div className="flex-1 text-gray-600">{size.toLocaleString()}</div>
+      <div className="flex-1 relative">
+        <div className="z-10 absolute w-full" style={{ top: 0, right: 0 }}>
+          {total.toLocaleString()}
+        </div>
+        <div
+          className={`${bg} opacity-50 h-full`}
+          style={{ width: `${bgWidth}%`, float: "right" }} // transform: `scaleX(${0.2})`
+        ></div>
+      </div>
+    </div>
+  );
+};
 
 // ...
 
