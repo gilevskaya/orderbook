@@ -25,6 +25,8 @@ type TDeribitTickerMessage = {
     channel: "ticker.BTC-PERPETUAL.raw";
     data: {
       last_price: number;
+      best_bid_price: number;
+      best_ask_price: number;
     };
   };
 };
@@ -82,6 +84,33 @@ export const useDeribitConnect = () => {
       }
       case "ticker.BTC-PERPETUAL.raw": {
         setLastPrice(lastMessage.params.data.last_price);
+        if (orderbook != null && orderbook.asks[0] && orderbook.bids[0]) {
+          if (
+            lastMessage.params.data.best_bid_price !== orderbook.bids[0] ||
+            lastMessage.params.data.best_ask_price !== orderbook.asks[0]
+          ) {
+            console.log("deribit asks/bids mismatch...");
+            console.log(
+              `${lastMessage.params.data.best_ask_price}|${orderbook.asks[0]}`,
+              `${lastMessage.params.data.best_bid_price}|${orderbook.bids[0]}`
+            );
+            sendMessage(
+              JSON.stringify({
+                jsonrpc: "2.0",
+                id: 3600,
+                method: "public/subscribe",
+                params: {
+                  channels: [
+                    "book.BTC-PERPETUAL.raw",
+                    // "trades.BTC-PERPETUAL.raw",
+                    "ticker.BTC-PERPETUAL.raw",
+                  ],
+                },
+              })
+            );
+          }
+        }
+
         break;
       }
       default: {
