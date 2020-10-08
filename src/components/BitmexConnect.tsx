@@ -1,3 +1,4 @@
+// https://www.bitmex.com/app/wsAPI
 import React from "react";
 
 import { useWebSocket } from "../shared/useWebSocket";
