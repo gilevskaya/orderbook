@@ -41,12 +41,19 @@ type TBitmexTradeMessage = {
 type TBitmexMessage = TBitmexOrderbookEditMessage | TBitmexTradeMessage;
 
 export const useBitmexConnect = () => {
-  const { readyState, lastMessage } = useWebSocket<TBitmexMessage>(
-    WS_URL_BITMEX
-  );
   const [orderbook, setOrderbook] = React.useState<TOrderBook | null>(null);
   const [lastPrice, setLastPrice] = React.useState<number | null>(null);
   const obBitmexId = React.useRef<Map<number, number>>(new Map());
+  const { readyState, lastMessage } = useWebSocket<TBitmexMessage>(
+    WS_URL_BITMEX,
+    {
+      onClose: () => {
+        setOrderbook(null);
+        setLastPrice(null);
+        obBitmexId.current = new Map();
+      },
+    }
+  );
 
   React.useEffect(() => {
     if (!lastMessage) return;
