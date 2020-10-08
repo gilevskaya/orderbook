@@ -1,4 +1,5 @@
 import React from "react";
+import { sortedIndex, sortedIndexBy } from "lodash";
 
 export enum TOrderBookSide {
   BIDS = "bids",
@@ -23,8 +24,8 @@ export type TOrderBookEntry = TOrderBookEntryBase & {
 export type TOrderBookEntries = Map<number, TOrderBookEntry>;
 export type TOrderBook = {
   entries: TOrderBookEntries;
-  bestBid: number;
-  bestAsk: number;
+  asks: number[];
+  bids: number[];
 };
 
 export const OrderBook = ({
@@ -48,54 +49,57 @@ export const OrderBook = ({
 
   React.useEffect(() => {
     if (orderbook == null) return;
-    const { entries, bestAsk, bestBid } = orderbook;
-    const newbids: TOrderBookEntryBase[] = [];
-    const newasks: TOrderBookEntryBase[] = [];
-    let newbidstotal = 0;
-    let newaskstotal = 0;
-    let currDepth = 0;
+    const { entries, asks: obasks, bids: obbids } = orderbook;
+    if (obasks.length === 0 || obbids.length === 0) return;
+    let newAsksPrice: number[] = [];
+    let newBidsPrice: number[] = [];
 
-    while (
-      isSkipEmpty
-        ? newbids.length < depth || newasks.length < depth
-        : currDepth < depth
-    ) {
-      let currBidPrice = bestBid - currDepth * step;
-      let currAskPrice = bestAsk + currDepth * step;
-      const entryBid = entries.get(currBidPrice);
-      const entryAsk = entries.get(currAskPrice);
-      if (entryBid != null) newbidstotal += entryBid?.size;
-      if (entryAsk != null) newaskstotal += entryAsk?.size;
-      //
-      const sizeBid = entryBid != null ? entryBid.size : 0;
-      const sizeAsk = entryAsk != null ? entryAsk.size : 0;
-      if ((!isSkipEmpty || sizeBid !== 0) && newbids.length < depth) {
-        newbids.push({
-          side: TOrderBookSide.BIDS,
-          price: currBidPrice,
-          size: sizeBid,
-          total: newbidstotal,
-        });
+    if (isSkipEmpty) {
+      newAsksPrice = obasks.slice(0, depth);
+      newBidsPrice = obbids.slice(0, depth);
+    } else {
+      const bestAsk = obasks[0];
+      const bestBid = obbids[0];
+      for (let currDepth = 0; currDepth < depth; currDepth++) {
+        newBidsPrice.push(bestBid - currDepth * step);
+        newAsksPrice.push(bestAsk + currDepth * step);
       }
-      if ((!isSkipEmpty || sizeAsk !== 0) && newasks.length < depth) {
-        newasks.unshift({
-          side: TOrderBookSide.ASKS,
-          price: currAskPrice,
-          size: sizeAsk,
-          total: newaskstotal,
-        });
-      }
-      currDepth++;
     }
-    setBids(newbids);
-    setAsks(newasks);
-    setMaxTotal(Math.max(newbids[newbids.length - 1].total, newasks[0].total));
+    let newaskstotal = 0;
+    let newbidstotal = 0;
+    setAsks(
+      newAsksPrice.map((price) => {
+        const entry = entries.get(price);
+        const size = entry ? entry.size : 0;
+        newaskstotal += size;
+        return {
+          side: TOrderBookSide.ASKS,
+          price,
+          size: size,
+          total: newaskstotal,
+        };
+      })
+    );
+    setBids(
+      newBidsPrice.map((price) => {
+        const entry = entries.get(price);
+        const size = entry ? entry.size : 0;
+        newbidstotal += size;
+        return {
+          side: TOrderBookSide.BIDS,
+          price,
+          size: size,
+          total: newbidstotal,
+        };
+      })
+    );
+    setMaxTotal(Math.max(newaskstotal, newbidstotal));
   }, [orderbook, depth, isSkipEmpty, step]);
 
   if (!orderbook || !lastPrice || !maxTotal) return null;
   return (
     <div>
-      {asks.map(({ price, size, total }, i) => (
+      {[...asks].reverse().map(({ price, size, total }, i) => (
         <OrderBookEntry
           key={`a-${price}-${size}`}
           isTop={i === 0}
@@ -175,32 +179,51 @@ export function applyExchangeOrderBookEdits<T>(
   }>,
   step: number = 0.5
 ): TOrderBook | null {
-  if (orderbook == null) {
-    orderbook = { entries: new Map(), bestBid: -1, bestAsk: -1 };
-  }
+  let { entries, asks, bids }: TOrderBook =
+    orderbook != null ? orderbook : { entries: new Map(), asks: [], bids: [] };
 
   for (const { side, edit } of edits) {
     const { price, size, id } = edit;
-    orderbook.entries.set(price, { side, price, size, total: 0, id });
 
     if (size === 0) {
-      if (side === TOrderBookSide.ASKS && price === orderbook.bestAsk) {
-        orderbook.bestAsk = price + step;
-      } else if (side === TOrderBookSide.BIDS && price === orderbook.bestBid) {
-        orderbook.bestBid = price - step;
+      // deletion
+      entries.delete(price);
+      if (side === TOrderBookSide.ASKS) {
+        const i = asks.indexOf(price);
+        if (i !== -1) delete asks[i];
+      } else {
+        const i = bids.indexOf(price);
+        if (i !== -1) delete bids[i];
       }
-    } else if (
-      side === TOrderBookSide.BIDS &&
-      (orderbook.bestBid === -1 || price > orderbook.bestBid)
-    ) {
-      orderbook.bestBid = price;
-    } else if (
-      side === TOrderBookSide.ASKS &&
-      (orderbook.bestAsk === -1 || price < orderbook.bestAsk)
-    ) {
-      orderbook.bestAsk = price;
+    } else {
+      // insert
+      entries.set(price, { side, price, size, total: 0, id });
+      if (side === TOrderBookSide.ASKS) {
+        if (asks.indexOf(price) === -1) {
+          asks = sortedInsert(price, asks, true);
+        }
+      } else {
+        if (bids.indexOf(price) === -1) {
+          bids = sortedInsert(price, bids, false);
+        }
+      }
     }
   }
-  if (orderbook.bestBid === -1 || orderbook.bestAsk === -1) return null;
-  return { ...orderbook };
+  return {
+    entries,
+    asks: asks.filter((e) => e),
+    bids: bids.filter((e) => e),
+  };
+}
+
+function sortedInsert(value: number, array: number[], isAZ: boolean) {
+  const a = [...array];
+  if (isAZ) a.splice(sortedIndex(array, value), 0, value);
+  else
+    a.splice(
+      sortedIndexBy(array, value, (x) => -x),
+      0,
+      value
+    );
+  return a;
 }

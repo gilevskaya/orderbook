@@ -28,15 +28,15 @@ const Widget = ({
 
 const OrderBookPage = () => {
   const {
-    readyState: deribitConn,
-    orderbook: deribitOrderbook,
-    lastPrice: deribitLastPrice,
-  } = useDeribitConnect();
-  const {
     readyState: bitmexConn,
     orderbook: bitmexOrderbook,
     lastPrice: bitmexLastPrice,
   } = useBitmexConnect();
+  const {
+    readyState: deribitConn,
+    orderbook: deribitOrderbook,
+    lastPrice: deribitLastPrice,
+  } = useDeribitConnect();
   const {
     readyState: binanceConn,
     orderbook: binanceOrderbook,
@@ -50,33 +50,12 @@ const OrderBookPage = () => {
       columns={3}
       rows={1}
       layout={{
-        deribit: { x: 1, y: 1, w: 1, h: 1 },
-        bitmex: { x: 2, y: 1, w: 1, h: 1 },
+        bitmex: { x: 1, y: 1, w: 1, h: 1 },
+        deribit: { x: 2, y: 1, w: 1, h: 1 },
         binance: { x: 3, y: 1, w: 1, h: 1 },
       }}
       gap={"5pt"}
     >
-      <Dashboard.Item id="deribit">
-        <Widget>
-          <div className="p-2 pt-1 flex-1 flex flex-col">
-            <div className="pb-1">
-              Deribit:{" "}
-              <span className="font-semibold">
-                {connectStatusName(deribitConn)}
-              </span>
-            </div>
-            {deribitOrderbook && deribitLastPrice && (
-              <OrderBook
-                orderbook={deribitOrderbook}
-                lastPrice={deribitLastPrice}
-                depth={depth}
-                step={0.5}
-              />
-            )}
-          </div>
-        </Widget>
-      </Dashboard.Item>
-
       <Dashboard.Item id="bitmex">
         <Widget>
           <div className="p-2 pt-1 flex-1 flex flex-col">
@@ -90,6 +69,27 @@ const OrderBookPage = () => {
               <OrderBook
                 orderbook={bitmexOrderbook}
                 lastPrice={bitmexLastPrice}
+                depth={depth}
+                step={0.5}
+              />
+            )}
+          </div>
+        </Widget>
+      </Dashboard.Item>
+
+      <Dashboard.Item id="deribit">
+        <Widget>
+          <div className="p-2 pt-1 flex-1 flex flex-col">
+            <div className="pb-1">
+              Deribit:{" "}
+              <span className="font-semibold">
+                {connectStatusName(deribitConn)}
+              </span>
+            </div>
+            {deribitOrderbook && deribitLastPrice && (
+              <OrderBook
+                orderbook={deribitOrderbook}
+                lastPrice={deribitLastPrice}
                 depth={depth}
                 step={0.5}
               />
