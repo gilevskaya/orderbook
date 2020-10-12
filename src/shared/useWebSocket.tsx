@@ -6,15 +6,15 @@ export type TConnectStatus =
   | WebSocket["CLOSING"]
   | WebSocket["CLOSED"];
 
-export const connectStatusName = (status: TConnectStatus | -1): string => {
-  if (status === -1) return "Uninitiated";
-  return {
-    [WebSocket.CONNECTING]: "Connecting",
-    [WebSocket.OPEN]: "Open",
-    [WebSocket.CLOSING]: "Closing",
-    [WebSocket.CLOSED]: "Closed",
-  }[status];
+const ConnectStatusNames = {
+  [WebSocket.CONNECTING]: "Connecting",
+  [WebSocket.OPEN]: "Open",
+  [WebSocket.CLOSING]: "Closing",
+  [WebSocket.CLOSED]: "Closed",
 };
+
+export const connectStatusName = (status: TConnectStatus | -1): string =>
+  status === -1 ? "Uninitiated" : ConnectStatusNames[status];
 
 export type WebSocketMessage =
   | string
@@ -22,21 +22,21 @@ export type WebSocketMessage =
   | SharedArrayBuffer
   | Blob
   | ArrayBufferView;
-export type SendMessage = (message: WebSocketMessage) => void;
 
-export function useWebSocket<T>(
+export function useWebSocket<R, T = WebSocketMessage>(
   url: string,
-  options?: { onOpen?: Function; onClose?: Function }
+  options?: { onOpen?: Function; onClose?: Function; onError?: Function }
 ) {
   const ws = React.useRef<WebSocket | null>(null);
-  const messageQueue = React.useRef<WebSocketMessage[]>([]);
-  const [lastMessage, setLastMessage] = React.useState<T | null>(null);
+  const messageQueue = React.useRef<T[]>([]);
+  const [lastMessage, setLastMessage] = React.useState<R | null>(null);
   // WebSocket ready state fails to show clised
   const [readyState, setReadyState] = React.useState<TConnectStatus | -1>(-1);
-
-  const sendMessage: SendMessage = React.useCallback((message) => {
+  const sendMessage = React.useCallback((message: T) => {
     if (ws.current && ws.current.readyState === WebSocket.OPEN) {
-      ws.current.send(message);
+      if (typeof message !== "string") {
+        ws.current.send(JSON.stringify(message));
+      } else ws.current.send(message);
     } else messageQueue.current.push(message);
   }, []);
 
@@ -45,19 +45,18 @@ export function useWebSocket<T>(
     setReadyState(WebSocket.CONNECTING);
     newws.onopen = (e) => {
       setReadyState(WebSocket.OPEN);
-      if (options?.onOpen) options.onOpen();
+      if (options?.onOpen) options.onOpen(e);
     };
     newws.onclose = (e) => {
-      console.log("ws closed", e);
       setReadyState(WebSocket.CLOSED);
       ws.current = null;
       messageQueue.current = [];
-      if (options?.onClose) options?.onClose();
+      if (options?.onClose) options.onClose(e);
       ws.current = connect();
     };
     newws.onerror = (e) => {
-      console.warn("ws error", e);
       setReadyState(WebSocket.CLOSED);
+      if (options?.onError) options.onError(e);
     };
     newws.onmessage = (e) => {
       const msg = JSON.parse(e.data);
@@ -70,9 +69,7 @@ export function useWebSocket<T>(
     if (ws.current == null || ws.current.readyState === WebSocket.CLOSED) {
       ws.current = connect();
     } else if (ws.current.readyState === WebSocket.OPEN) {
-      messageQueue.current.splice(0).forEach((message) => {
-        sendMessage(message);
-      });
+      messageQueue.current.splice(0).forEach(sendMessage);
     }
   }, [ws, connect, sendMessage]);
 

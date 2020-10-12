@@ -149,9 +149,8 @@ const OrderBookEntry = ({
   const bgWidth = Math.round((total / maxTotal) * 95); // 95 instead of 100 to make it pretty
   return (
     <div
-      className={`font-mono flex text-xs flex border-gray-700 border-b ${
-        isTop ? "border-t" : ""
-      } border-dashed text-right`}
+      className={`font-mono flex text-xs flex border-gray-700 border-b ${isTop ? "border-t" : ""
+        } border-dashed text-right`}
     >
       <div className={`w-16 ${text}`}>{price.toFixed(decimals)}</div>
 
@@ -177,7 +176,7 @@ export function applyExchangeOrderBookEdits<T>(
     side: TOrderBookSide;
     edit: TOrderBookEdit;
   }>,
-  step: number = 0.5
+  step: number = 0.5 // TODO: ...
 ): TOrderBook | null {
   let { entries, asks, bids }: TOrderBook =
     orderbook != null ? orderbook : { entries: new Map(), asks: [], bids: [] };
