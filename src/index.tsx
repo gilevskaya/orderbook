@@ -15,3 +15,8 @@ ReactDOM.render(
 // unregister() to register() below. Note this comes with some pitfalls.
 // Learn more about service workers: https://bit.ly/CRA-PWA
 serviceWorker.unregister();
+
+export {useWebSocket} from './shared/useWebSocket';
+export {useDeribitConnect} from './components/DeribitConnect';
+export {useBitmexConnect} from './components/BitmexConnect';
+export {useBinanceConnect} from './components/BinanceConnect';
