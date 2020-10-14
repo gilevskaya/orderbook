@@ -18,13 +18,13 @@
     "tailwindcss": "^1.8.10",
     "typescript": "~3.7.2"
   },
-  "main": "build/static/js/main.6590d921.chunk.js",
+  "main": "build/static/js/main.js",
   "scripts": {
     "build:tailwind": "tailwindcss build src/index.src.css -o src/index.css",
     "prestart": "npm run build:tailwind",
     "prebuild": "npm run build:tailwind",
     "start": "react-scripts start",
-    "build": "react-scripts build",
+    "build": "react-scripts build && ./mirror-unhashed.sh",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
