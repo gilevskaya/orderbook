@@ -18,6 +18,7 @@
     "tailwindcss": "^1.8.10",
     "typescript": "~3.7.2"
   },
+  "main": "build/static/js/main.6590d921.chunk.js",
   "scripts": {
     "build:tailwind": "tailwindcss build src/index.src.css -o src/index.css",
     "prestart": "npm run build:tailwind",
@@ -43,6 +44,7 @@
     ]
   },
   "devDependencies": {
-    "@types/lodash": "^4.14.161"
+    "@types/lodash": "^4.14.161",
+    "webpack-cli": "^4.0.0"
   }
 }
